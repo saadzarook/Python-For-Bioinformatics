@@ -1,0 +1,15 @@
+gene	chromosome	pathway	description
+GAPDH	12	housekeeping	glyceraldehyde-3-phosphate dehydrogenase
+ACTB	7	housekeeping	beta-actin
+TP53	17	p53 pathway	tumor protein p53
+CDKN1A	6	p53 pathway	cyclin dependent kinase inhibitor 1A (p21)
+MDM2	12	p53 pathway	MDM2 proto-oncogene
+BAX	19	p53 pathway	BCL2 associated X, apoptosis regulator
+GADD45A	1	p53 pathway	growth arrest and DNA damage inducible alpha
+FAS	10	p53 pathway	Fas cell surface death receptor
+MYC	8	cell cycle	MYC proto-oncogene
+CCNB1	5	cell cycle	cyclin B1
+PLK1	16	cell cycle	polo like kinase 1
+PCNA	20	cell cycle	proliferating cell nuclear antigen
+HBB	11	other	hemoglobin subunit beta
+INS	11	other	insulin

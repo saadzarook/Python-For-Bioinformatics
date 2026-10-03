@@ -1,0 +1,195 @@
+<!-- ======================================================================
+     LESSON 0 — WELCOME BACK
+     ====================================================================== -->
+<section class="lesson" id="welcome-back" aria-labelledby="welcome-back-title">
+  <div class="hero">
+    <span class="lesson-kicker">Lesson 0 · Welcome back</span>
+    <h1 id="welcome-back-title">Python for Bioinformatics<br>Level 2: Intermediate</h1>
+    <p class="lead">You can already read a FASTA file, translate a gene and use Biopython. Now it's time to work like a real bioinformatician: tidy code, sequencing reads, tables, plots and data straight from NCBI. Still nothing to install: everything runs right here in your browser.</p>
+  </div>
+
+  <h2>Welcome back! 👋</h2>
+  <p>If you've finished <a href="index.html">Level 1</a>, well done. That was the hardest step: going from "I've never written code" to "I wrote a small sequence-analysis pipeline". Level 2 builds directly on it.</p>
+  <p>You might still feel like a beginner. That's completely fine, and honestly, it's how most bioinformaticians feel most days! Every new idea on this page is explained from scratch, and nothing is assumed beyond what you met in Level 1.</p>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why Level 2 matters</span>
+    <p>In Level 1 you worked with a few genes. Real projects are bigger and messier: millions of sequencing reads with quality scores, tables of thousands of genes, files that sometimes break, and data you download from public databases. Level 2 gives you the tools to handle that safely, and to show your results in tables and plots that other people can trust.</p>
+  </div>
+
+  <h2>What Level 2 covers</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Lessons</th><th>Theme</th><th>You'll learn to…</th></tr></thead>
+      <tbody>
+        <tr><td>1–3</td><td>Better code</td><td>write tidier code, handle errors, test your functions, and use Python's built-in modules</td></tr>
+        <tr><td>4–6</td><td>Sequences and files</td><td>find motifs with patterns, judge sequencing read quality (FASTQ), and save results to files</td></tr>
+        <tr><td>7–9</td><td>Tables and plots</td><td>analyse gene expression tables with pandas and draw honest plots with matplotlib</td></tr>
+        <tr><td>10–12</td><td>Biology tools</td><td>read GenBank files, find open reading frames, align sequences and download data from NCBI</td></tr>
+        <tr><td>13</td><td>Capstone</td><td>build a mini analysis pipeline from raw reads to a results table, plots and a short report</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>How this page works (a quick reminder)</h2>
+  <p>It works exactly like Level 1. Every grey box with a <strong>▶ Run</strong> button is real Python running in your browser. Edit anything, press <strong>Run</strong> (or <kbd>Ctrl</kbd> + <kbd>Enter</kbd>), and press <strong>↺ Reset</strong> if you get lost. Words with a dotted underline, like <a class="term" href="#g-comprehension">comprehension</a>, are in the <a href="#glossary">glossary</a>: hover or tap them for a quick definition.</p>
+
+<script type="text/x-python" class="py-example">
+print("Welcome back to Python for Bioinformatics!")
+print("Level 2 starts now.")
+</script>
+
+  <h3>New things you'll see in Level 2</h3>
+  <ul>
+    <li><strong>Exercise types.</strong> Each exercise has a label: <span class="exercise-kind">✍️ Write it</span> (write new code), <span class="exercise-kind">🐞 Fix the bug</span> (find and repair a mistake), <span class="exercise-kind">🔮 Predict, then run</span> (guess the result first, then check) and <span class="exercise-kind">🧹 Make it cleaner</span> (rewrite messy code that already works).</li>
+    <li><strong><span class="exercise-tag challenge">🌶️ Challenge</span> exercises</strong> are optional and a bit harder. Skip them if you like, and come back later.</li>
+    <li><strong>🧹 Good habit</strong> boxes show how professionals keep their work tidy and trustworthy.</li>
+    <li><strong>🤓 Did you know?</strong> boxes are fun facts. You don't need them for the exercises; they're just there because biology is cool.</li>
+    <li><strong>💻 Run this on your own computer</strong> boxes show code that doesn't work inside a browser. You can read it here and try it later.</li>
+  </ul>
+
+  <div class="callout tip">
+    <span class="callout-title">💡 Some lessons download extra tools</span>
+    <p>A few lessons use extra <a href="index.html#g-library">libraries</a>: Biopython (Lessons 5, 10–13), pandas (Lessons 7–9 and 13) and matplotlib (Lessons 9 and 13). The page downloads each one the first time you reach its lesson, so the rest of the page stays fast. The first download can take a few seconds (they're 5–9 MB each). Watch the <strong>Python</strong> badge at the top of the screen: it lists what's ready.</p>
+  </div>
+
+  <div class="callout warn">
+    <span class="callout-title">🧪 Real data and made-up data</span>
+    <p>Every real sequence on this page comes from <a href="index.html#g-ncbi">NCBI</a>, and its <a class="term" href="#g-accession">accession number</a> is shown next to it (for example, human HBB is NM_000518.5). Some datasets are <strong>made-up teaching data</strong>: the sequencing reads in Lessons 5 and 13 and the gene expression tables in Lessons 7–9. They're designed to look and behave like real data, but they don't come from a real experiment. Each one is clearly labelled.</p>
+  </div>
+
+  <h2>A quick recap of Level 1</h2>
+  <p>Here's a small program that uses almost everything from Level 1: a <a href="index.html#g-function">function</a> with a <a href="index.html#g-docstring">docstring</a>, reading a <a href="index.html#g-fasta">FASTA</a> file into a <a href="index.html#g-dictionary">dictionary</a>, a <code>for</code> loop, <code>if</code>/<code>else</code> and f-strings. Run it, then read it line by line. If most of it makes sense, you're ready for Level 2.</p>
+
+<script type="text/x-python" class="py-example">
+def gc_content(seq):
+    """Return the GC content of a DNA sequence, as a percentage."""
+    return (seq.count("G") + seq.count("C")) / len(seq) * 100
+
+
+# Read genes.fasta into a dictionary {id: sequence}
+sequences = {}
+current_id = None
+with open("genes.fasta") as f:
+    for line in f:
+        line = line.strip()
+        if line.startswith(">"):
+            current_id = line[1:].split()[0]
+            sequences[current_id] = ""
+        elif line != "":
+            sequences[current_id] = sequences[current_id] + line
+
+# Report each gene
+for seq_id, seq in sequences.items():
+    if gc_content(seq) > 50:
+        label = "GC-rich"
+    else:
+        label = "not GC-rich"
+    print(f"{seq_id}: {len(seq)} bp, {gc_content(seq):.1f}% GC ({label})")
+</script>
+
+  <p>The file <code>genes.fasta</code> is the same one you used in Level 1: the coding sequences of human HBB (NM_000518.5) and INS (NM_000207.3), and the first 120 bases of TP53 (NM_000546.6). If a line puzzles you, the matching Level 1 lesson is one click away:</p>
+  <ul class="lesson-links" aria-label="Level 1 lessons">
+    <li><a href="index.html#variables">Variables</a></li>
+    <li><a href="index.html#strings">Strings as DNA</a></li>
+    <li><a href="index.html#loops">Lists and loops</a></li>
+    <li><a href="index.html#conditionals">Conditionals</a></li>
+    <li><a href="index.html#dictionaries">Dictionaries</a></li>
+    <li><a href="index.html#functions">Functions</a></li>
+    <li><a href="index.html#fasta">Reading FASTA</a></li>
+    <li><a href="index.html#biopython">Biopython</a></li>
+  </ul>
+
+  <h3>Warm-up exercise</h3>
+  <div class="exercise" id="ex-0-1">
+    <h4><span class="exercise-tag">Exercise 0.1</span><span class="exercise-kind">✍️ Write it</span>Count every base</h4>
+    <p>Complete the function <code>count_bases(seq)</code> so it <strong>returns</strong> a dictionary with the number of A, C, G and T in <code>seq</code>, for example <code>{"A": 2, "C": 1, "G": 1, "T": 3}</code> for <code>"GATTACT"</code>. Keep this function in mind: in Lesson 1 you'll make it much shorter.</p>
+<script type="text/x-python" class="py-starter">
+def count_bases(seq):
+    """Return a dictionary with the number of A, C, G and T in seq."""
+    counts = {"A": 0, "C": 0, "G": 0, "T": 0}
+    # loop over the bases and add 1 to the right count
+
+    return counts
+
+
+print(count_bases("GATTACT"))   # should be {'A': 2, 'C': 1, 'G': 1, 'T': 3}
+</script>
+    <div class="hints">
+      <p>Loop over the sequence with <code>for base in seq:</code> (indented inside the function, above <code>return</code>).</p>
+      <p>Inside the loop, add 1 to that base's count: <code>counts[base] = counts[base] + 1</code>. This is the counting pattern from <a href="index.html#dictionaries">Level 1, Lesson 6</a>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+def count_bases(seq):
+    """Return a dictionary with the number of A, C, G and T in seq."""
+    counts = {"A": 0, "C": 0, "G": 0, "T": 0}
+    for base in seq:
+        counts[base] = counts[base] + 1
+    return counts
+
+
+print(count_bases("GATTACT"))   # should be {'A': 2, 'C': 1, 'G': 1, 'T': 3}
+</script>
+<script type="text/x-python" class="py-tests">
+assert "count_bases" in globals(), "I can't find a function called count_bases. Keep the def line as it is."
+_r = count_bases("GATTACT")
+assert _r is not None, "Your function gives back None. Keep the 'return counts' line at the end."
+assert _r != {"A": 0, "C": 0, "G": 0, "T": 0}, "All the counts are still 0. Inside a loop over seq, add 1 to counts[base]."
+assert _r == {"A": 2, "C": 1, "G": 1, "T": 3}, f"For 'GATTACT' I expected {{'A': 2, 'C': 1, 'G': 1, 'T': 3}} but got {_r}."
+assert count_bases("GGGCCC") == {"A": 0, "C": 3, "G": 3, "T": 0}, f"For 'GGGCCC' I expected {{'A': 0, 'C': 3, 'G': 3, 'T': 0}} but got {count_bases('GGGCCC')}."
+assert count_bases("") == {"A": 0, "C": 0, "G": 0, "T": 0}, "An empty sequence should give all zeros."
+</script>
+  </div>
+
+  <div class="quiz">
+    <h3>"Are you ready?" warm-up quiz</h3>
+    <p>Four quick questions about Level 1. Got one wrong? No problem at all: the explanation tells you which Level 1 lesson to peek at, and the links are just below the quiz.</p>
+    <div class="quiz-q">
+      <p>1. If <code>dna = "ATGCGT"</code>, what is <code>dna[1:4]</code>?</p>
+      <ul>
+        <li><button class="quiz-opt">ATG</button><span class="why">That's dna[0:3]. Remember that Python counts from 0, so index 1 is the second letter. (Level 1, Lesson 3: Strings as DNA)</span></li>
+        <li data-correct><button class="quiz-opt">TGC</button><span class="why">Yes: indexes 1, 2 and 3. A slice includes the start and stops just before the end. (Level 1, Lesson 3: Strings as DNA)</span></li>
+        <li><button class="quiz-opt">TGCG</button><span class="why">Close, but the slice stops just before index 4, so it has 4 − 1 = 3 letters. (Level 1, Lesson 3: Strings as DNA)</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. <code>counts = {"A": 5}</code>. What does <code>counts.get("G", 0)</code> give?</p>
+      <ul>
+        <li><button class="quiz-opt">A KeyError</button><span class="why">Square brackets, counts["G"], would give a KeyError. .get() is the safe version. (Level 1, Lesson 6: Dictionaries)</span></li>
+        <li data-correct><button class="quiz-opt">0</button><span class="why">Correct: "G" isn't a key, so .get() gives back the default value you supplied, 0. (Level 1, Lesson 6: Dictionaries)</span></li>
+        <li><button class="quiz-opt">5</button><span class="why">5 is the value for "A". "G" isn't in the dictionary at all. (Level 1, Lesson 6: Dictionaries)</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. A function has no <code>return</code> line. What does calling it give back?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt"><code>None</code></button><span class="why">Yes. print() only shows a value; return hands it back. Without return, you get None. (Level 1, Lesson 7: Functions)</span></li>
+        <li><button class="quiz-opt">Whatever it printed</button><span class="why">Printing isn't returning: the printed text appears on screen but isn't handed back. (Level 1, Lesson 7: Functions)</span></li>
+        <li><button class="quiz-opt">An error</button><span class="why">It's not an error, just a function that gives back None. (Level 1, Lesson 7: Functions)</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>4. In a loop over <code>SeqIO.parse("genes.fasta", "fasta")</code>, where is each record's sequence?</p>
+      <ul>
+        <li><button class="quiz-opt"><code>record.id</code></button><span class="why">.id is the first word of the header, like NM_000518.5. (Level 1, Lesson 9: Biopython)</span></li>
+        <li data-correct><button class="quiz-opt"><code>record.seq</code></button><span class="why">Correct: .seq is a Seq object, which you can translate, reverse-complement and more. (Level 1, Lesson 9: Biopython)</span></li>
+        <li><button class="quiz-opt"><code>record.description</code></button><span class="why">.description is the whole header line. (Level 1, Lesson 9: Biopython)</span></li>
+      </ul>
+    </div>
+    <p>Need a refresher? Jump back to <a href="index.html#strings">Strings</a>, <a href="index.html#loops">Loops</a>, <a href="index.html#dictionaries">Dictionaries</a>, <a href="index.html#functions">Functions</a> or <a href="index.html#biopython">Biopython</a> in Level 1. There's no rush; this page will still be here when you come back.</p>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li>Level 2 builds on Level 1: same page, same code boxes, plus a few new kinds of boxes and exercises.</li>
+      <li>Extra libraries (Biopython, pandas, matplotlib) download automatically when you reach the lesson that needs them.</li>
+      <li>Real sequences show their NCBI accession number. Made-up teaching data is always labelled.</li>
+    </ul>
+  </div>
+  <div class="callout celebrate">
+    <span class="callout-title">🎉 You're warmed up!</span>
+    <p>You just read a FASTA file, ran a function on every gene and counted bases with a dictionary. That's a solid base to build on. Let's make your code cleaner.</p>
+  </div>
+</section>
+

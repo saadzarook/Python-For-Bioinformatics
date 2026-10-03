@@ -6,6 +6,8 @@
 <title>Python for Bioinformatics — Level 1: Easy</title>
 <meta name="description" content="A beginner-friendly, hands-on course: learn Python from zero using DNA, RNA and protein examples. Runs entirely in your browser.">
 <meta name="color-scheme" content="light dark">
+<!-- SHARED WITH LEVEL 1 — keep in sync: inline 🧬 favicon, so browsers don't request favicon.ico -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🧬%3C/text%3E%3C/svg%3E">
 <script>
   /* Apply the saved theme before the page paints, so there is no flash of the wrong colours. */
   (function () {
@@ -343,7 +345,7 @@ a.term:hover, a.term:focus-visible { color: var(--accent-strong); }
     <ul class="levels" aria-labelledby="levels-heading">
       <!-- When a new level is ready, replace its <span class="soon"> with a link, e.g. <a href="intermediate.html">… -->
       <li><a href="index.html" aria-current="page">Level 1 · Easy <span class="badge">You are here</span></a></li>
-      <li><span class="soon" aria-disabled="true">Level 2 · Intermediate <span class="badge">Coming soon</span></span></li>
+      <li><a href="intermediate.html">Level 2 · Intermediate</a></li>
       <li><span class="soon" aria-disabled="true">Level 3 · Advanced <span class="badge">Coming soon</span></span></li>
     </ul>
     <h2 id="toc-heading">In this level</h2>
@@ -3265,14 +3267,16 @@ for record in SeqIO.parse("genes.fasta", "fasta"):
   <p>Congratulations on finishing Level 1! 🎓 You've gone from zero to writing a real sequence-analysis pipeline. Here's a preview of what's coming:</p>
   <div class="coming-soon-grid">
     <div class="card">
-      <h4>Level 2 · Intermediate <span class="badge">Coming soon</span></h4>
+      <h4><a href="intermediate.html">Level 2 · Intermediate</a> <span class="badge">Ready now</span></h4>
       <ul>
-        <li>Installing Python, Jupyter notebooks and the terminal</li>
-        <li><code>while</code> loops, writing files, handling errors with <code>try</code>/<code>except</code></li>
-        <li>Finding open reading frames in all six frames</li>
-        <li>Tables of results with pandas, and simple plots</li>
-        <li>Downloading sequences from NCBI with Biopython</li>
+        <li>Tidier code, handling errors and testing your functions</li>
+        <li>Finding motifs and restriction sites with regular expressions</li>
+        <li>Sequencing reads: FASTQ files and quality scores</li>
+        <li>Tables with pandas and honest plots with matplotlib</li>
+        <li>GenBank files, ORFs in all six frames, and sequence alignment</li>
+        <li>Downloading data from NCBI, and a capstone QC pipeline</li>
       </ul>
+      <p><a href="intermediate.html">Start Level 2 →</a></p>
     </div>
     <div class="card">
       <h4>Level 3 · Advanced <span class="badge">Coming soon</span></h4>

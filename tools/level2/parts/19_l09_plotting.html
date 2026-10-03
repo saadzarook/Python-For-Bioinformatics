@@ -1,0 +1,379 @@
+<!-- ======================================================================
+     LESSON 9 — PLOTTING WITH MATPLOTLIB
+     ====================================================================== -->
+<section class="lesson" id="plotting" aria-labelledby="plotting-title">
+  <h2 id="plotting-title"><span class="lesson-kicker">Lesson 9</span>Plotting with matplotlib</h2>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why this matters in bioinformatics</span>
+    <p>A table of 40 numbers is hard to read; a picture of them takes one second. Plots are how you <em>check</em> your data (is the quality falling? is there an odd sample?) and how you <em>show</em> results to others, in lab meetings, posters and papers. A good plot is honest and easy to read; a careless one can mislead, even by accident.</p>
+  </div>
+
+  <div class="callout tip">
+    <span class="callout-title">💡 Loading matplotlib</span>
+    <p><a class="term" href="#g-matplotlib">matplotlib</a> is Python's most widely used plotting library. This page downloads it (about 9 MB) when you reach this lesson, and the very first plot takes a few extra seconds while matplotlib sets up its fonts. On this page, plots appear right under the code box. On your own computer, <code>plt.show()</code> opens them in a window, and <code>plt.savefig("figure.png", dpi=300)</code> saves them as an image file.</p>
+  </div>
+
+  <h3>Your first plot</h3>
+  <p>Everyone imports the plotting part of matplotlib as <code>plt</code>. A plot is built in steps: draw the data, then add labels, then show it.</p>
+
+<script type="text/x-python" class="py-example">
+import matplotlib.pyplot as plt
+
+positions = [1, 2, 3, 4, 5, 6, 7, 8]
+quality = [36, 37, 36, 35, 33, 31, 27, 22]
+
+plt.plot(positions, quality, marker="o")
+plt.xlabel("Position in read (bases)")
+plt.ylabel("Phred quality score")
+plt.title("Quality along one read")
+plt.show()
+</script>
+
+  <p>Every plot on this page also gets a short text description for screen readers, made from its title and axis labels. One more reason to always label your plots!</p>
+
+  <h3>Our data</h3>
+  <p>For this lesson we'll use <code>run42.fastq</code>: 40 reads of 75 bases from an imaginary sequencing run (<strong>made-up teaching data</strong>, simulated like Lesson 5's reads: real gene sequences with realistic quality patterns). To read it, we've added <code>read_fastq()</code> and <code>phred_scores()</code> from Lesson 5 to our <code>seqtools</code> module. That's how a personal toolkit grows: each useful function you write gets a permanent home.</p>
+
+  <h3>Histograms: what does the distribution look like?</h3>
+  <p>A <a class="term" href="#g-histogram">histogram</a> sorts values into ranges called <em>bins</em> and shows how many fall in each. It's the go-to plot for "what values do I have?". Here's the GC content of every read:</p>
+
+<script type="text/x-python" class="py-example">
+import matplotlib.pyplot as plt
+from seqtools import read_fastq, gc_content
+
+reads = read_fastq("run42.fastq")
+gc_values = [gc_content(read["seq"]) for read in reads]
+
+plt.hist(gc_values, bins=10)
+plt.xlabel("GC content (%)")
+plt.ylabel("Number of reads")
+plt.title(f"GC content of {len(gc_values)} reads (run42)")
+plt.show()
+</script>
+
+  <p>Most reads have between 50% and 60% GC, which fits the genes they came from. A second peak or a long tail here could mean contamination with DNA from another organism, which is exactly why sequencing QC tools draw this plot.</p>
+
+  <h3>Line plots: quality along the read</h3>
+  <p>Line plots show how something changes along an ordered axis, such as position or time. Let's average the quality at each position across all 40 reads. pandas can do this in one step: put the scores in a DataFrame with one row per read and one column per position, and <code>.mean()</code> averages each column.</p>
+
+<script type="text/x-python" class="py-example">
+import matplotlib.pyplot as plt
+import pandas as pd
+from seqtools import read_fastq, phred_scores
+
+MIN_QUALITY = 20     # a common minimum
+GOOD_QUALITY = 30    # a common benchmark for good data
+
+reads = read_fastq("run42.fastq")
+scores = pd.DataFrame([phred_scores(read["qual"]) for read in reads])   # rows: reads, columns: positions
+mean_by_position = scores.mean()
+positions = range(1, len(mean_by_position) + 1)                        # biology numbering, from 1
+
+plt.plot(positions, mean_by_position, label="Mean quality")
+plt.axhline(GOOD_QUALITY, color="C1", linestyle="--", label=f"Q{GOOD_QUALITY} (good)")
+plt.axhline(MIN_QUALITY, color="C2", linestyle=":", label=f"Q{MIN_QUALITY} (minimum)")
+plt.ylim(0, 41)
+plt.xlabel("Position in read (bases)")
+plt.ylabel("Mean Phred quality score")
+plt.title(f"Mean quality by position ({len(reads)} reads)")
+plt.legend()
+plt.show()
+</script>
+
+  <p>There's the classic pattern from Lesson 5: quality starts above Q30 and falls towards the 3′ end. A few new things here: <code>plt.axhline()</code> draws a horizontal reference line; <code>label=</code> plus <code>plt.legend()</code> adds a key; and <code>color="C1"</code> means "the second colour of the current style" (<code>"C0"</code> is the first), so colours stay consistent and readable.</p>
+
+  <h3>Bar charts: comparing genes</h3>
+  <p>Bar charts compare values between categories, such as genes. Here are the log2 fold changes from Lessons 7–8, sorted, with "up" and "down" genes in two different colours:</p>
+
+<script type="text/x-python" class="py-example">
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+df = pd.read_csv("expression.csv").dropna()
+df["log2_fc"] = np.log2((df["treated_tpm"] + 1) / (df["control_tpm"] + 1))
+df = df.sort_values("log2_fc")
+
+colours = ["C0" if value > 0 else "C1" for value in df["log2_fc"]]
+plt.figure(figsize=(7, 4))
+plt.bar(df["gene"], df["log2_fc"], color=colours)
+plt.axhline(0, color="grey", linewidth=1)
+plt.xticks(rotation=90)
+plt.ylabel("log2 fold change (treated vs control)")
+plt.title("Expression change after DNA damage (made-up data)")
+plt.show()
+</script>
+
+  <p><code>plt.figure(figsize=(7, 4))</code> makes the figure a bit wider (7 × 4 inches), and <code>plt.xticks(rotation=90)</code> tilts the gene names so they don't overlap. The comprehension that picks the colours has an <code>if</code>/<code>else</code> inside it: <em>"C0 if the value is above 0, otherwise C1"</em>. (We dropped FAS with <code>.dropna()</code>, because a missing value can't be drawn.)</p>
+
+  <h3>Scatter plots: two measurements at once</h3>
+  <p>A scatter plot puts one dot per item, with one measurement across and another up. Here, every gene's control TPM against its treated TPM. Expression values span from 0.1 to 3000, so we use <strong>logarithmic axes</strong>, where each step is ten times bigger than the last. Genes on the dashed diagonal didn't change.</p>
+
+<script type="text/x-python" class="py-example">
+import matplotlib.pyplot as plt
+import pandas as pd
+
+df = pd.read_csv("expression.csv").dropna()
+
+plt.figure(figsize=(5, 5))
+plt.scatter(df["control_tpm"], df["treated_tpm"])
+plt.plot([0.1, 5000], [0.1, 5000], color="grey", linestyle="--", linewidth=1, label="no change")
+for gene in ["CDKN1A", "MYC", "GAPDH"]:
+    row = df[df["gene"] == gene].iloc[0]          # .iloc[0] takes the first (only) matching row
+    plt.annotate(gene, (row["control_tpm"], row["treated_tpm"]), textcoords="offset points", xytext=(-8, 0), ha="right", va="center")
+plt.xscale("log")
+plt.yscale("log")
+plt.xlabel("Control expression (TPM, log scale)")
+plt.ylabel("Treated expression (TPM, log scale)")
+plt.title("Each dot is one gene")
+plt.legend()
+plt.show()
+</script>
+
+  <p>Dots above the diagonal went up (CDKN1A), dots below went down (MYC), and GAPDH sits right on it. <code>plt.annotate()</code> writes a label next to a point; label only a few interesting points, not every one.</p>
+
+  <h3>What makes a plot honest and readable?</h3>
+  <div class="callout habit">
+    <span class="callout-title">🧹 Good habit: a checklist for every plot</span>
+    <ul>
+      <li><strong>Label both axes, with units</strong>: "GC content (%)", not "gc".</li>
+      <li><strong>Give it a title</strong> that says what it shows, and how many items (n = 40 reads).</li>
+      <li><strong>Bar charts start at zero.</strong> A bar's length <em>is</em> its value; cutting off the bottom exaggerates differences.</li>
+      <li><strong>Say when a scale is logarithmic</strong>, in the axis label.</li>
+      <li><strong>Use colour for meaning</strong> (up vs down), not decoration, and pick colours that colour-blind readers can tell apart. Never rely on colour alone: add a legend or labels.</li>
+      <li><strong>Skip 3D effects and dual y-axes.</strong> They make values harder to read and easier to misread.</li>
+      <li><strong>Keep the code that made the plot</strong>, so the figure can be remade exactly. Never edit a figure by hand.</li>
+    </ul>
+  </div>
+  <p>Here's what a truncated axis does. Both panels show the same two numbers. The left one makes ACTB look about four times higher than GAPDH; it's really 1.4 times. (<code>plt.subplot(1, 2, 1)</code> means "a grid of 1 row and 2 columns: draw in panel 1".)</p>
+
+<script type="text/x-python" class="py-example">
+import matplotlib.pyplot as plt
+
+genes = ["GAPDH", "ACTB"]
+tpm = [2150.4, 3010.2]
+
+plt.figure(figsize=(8, 3.5))
+
+plt.subplot(1, 2, 1)
+plt.bar(genes, tpm, color="C1")
+plt.ylim(1900, 3100)                     # misleading: the axis starts at 1900
+plt.ylabel("Control expression (TPM)")
+plt.title("Misleading: axis starts at 1900")
+
+plt.subplot(1, 2, 2)
+plt.bar(genes, tpm, color="C0")
+plt.ylabel("Control expression (TPM)")
+plt.title("Honest: axis starts at 0")
+
+plt.tight_layout()                       # stops the two panels overlapping
+plt.show()
+</script>
+
+  <div class="callout fact">
+    <span class="callout-title">🤓 Did you know?</span>
+    <p>About 1 in 12 men and 1 in 200 women have some form of colour blindness, most often difficulty telling red from green. The classic red-green "heatmap" used in many older gene expression papers is unreadable for them. That's why modern plots use colour-blind-safe palettes, like the blue and orange on this page.</p>
+  </div>
+
+  <h3>Exercises</h3>
+  <div class="exercise" id="ex-9-1">
+    <h4><span class="exercise-tag">Exercise 9.1</span><span class="exercise-kind">✍️ Write it</span>A histogram of read quality</h4>
+    <p>Draw a histogram of the <strong>mean quality of each read</strong> in <code>run42.fastq</code>, with 15 bins. Label the x-axis and the y-axis, and give the plot a title. What do you notice about the shape?</p>
+<script type="text/x-python" class="py-starter">
+from statistics import mean
+import matplotlib.pyplot as plt
+from seqtools import read_fastq, phred_scores
+
+reads = read_fastq("run42.fastq")
+read_means = [mean(phred_scores(read["qual"])) for read in reads]
+
+# draw and label the histogram here
+
+plt.show()
+</script>
+    <div class="hints">
+      <p>Draw it with <code>plt.hist(read_means, bins=15)</code>.</p>
+      <p>Then <code>plt.xlabel("Mean Phred quality of the read")</code>, <code>plt.ylabel("Number of reads")</code> and <code>plt.title(...)</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from statistics import mean
+import matplotlib.pyplot as plt
+from seqtools import read_fastq, phred_scores
+
+reads = read_fastq("run42.fastq")
+read_means = [mean(phred_scores(read["qual"])) for read in reads]
+
+plt.hist(read_means, bins=15)
+plt.xlabel("Mean Phred quality of the read")
+plt.ylabel("Number of reads")
+plt.title(f"Mean quality of {len(read_means)} reads (run42)")
+plt.show()
+</script>
+<script type="text/x-python" class="py-tests">
+import matplotlib.pyplot as _plt
+assert _plt.get_fignums(), "I can't see a plot. Draw one with plt.hist(read_means, bins=15)."
+_ax = _plt.gca()
+assert len(_ax.patches) == 15, f"I expected a histogram with 15 bins, but I see {len(_ax.patches)} bars. Use plt.hist(read_means, bins=15)."
+assert _ax.get_xlabel().strip(), "Label the x-axis with plt.xlabel(...)."
+assert _ax.get_ylabel().strip(), "Label the y-axis with plt.ylabel(...)."
+assert _ax.get_title().strip(), "Give your plot a title with plt.title(...)."
+assert abs(sum(p.get_height() for p in _ax.patches) - 40) < 1e-9, "The bars should add up to 40 reads. Did you plot read_means?"
+</script>
+    <p>The histogram has two separate humps: most reads are around Q32–36, and a small group sits around Q16–21. That's a sign of two populations, good reads and poor ones, and it tells you where to put your quality threshold: in the gap between them. You'll use exactly this in the capstone.</p>
+  </div>
+
+  <div class="exercise" id="ex-9-2">
+    <h4><span class="exercise-tag">Exercise 9.2</span><span class="exercise-kind">🐞 Fix the bug</span>Make this plot honest</h4>
+    <p>This bar chart runs without errors, but it breaks three rules from the checklist: the y-axis doesn't start at zero, and neither axis is labelled. Fix all three. Put the unit, TPM, in the y-axis label.</p>
+<script type="text/x-python" class="py-starter">
+import matplotlib.pyplot as plt
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+genes = df[df["gene"].isin(["CDKN1A", "MDM2", "BAX"])]
+
+plt.bar(genes["gene"], genes["treated_tpm"])
+plt.ylim(100, 260)
+plt.title("p53 targets after treatment")
+plt.show()
+</script>
+    <div class="hints">
+      <p>Delete the <code>plt.ylim(100, 260)</code> line (or change it to start at 0). matplotlib starts bar charts at zero by default.</p>
+      <p>Add <code>plt.xlabel("Gene")</code> and <code>plt.ylabel("Treated expression (TPM)")</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import matplotlib.pyplot as plt
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+genes = df[df["gene"].isin(["CDKN1A", "MDM2", "BAX"])]
+
+plt.bar(genes["gene"], genes["treated_tpm"])
+plt.xlabel("Gene")
+plt.ylabel("Treated expression (TPM)")
+plt.title("p53 targets after treatment")
+plt.show()
+</script>
+<script type="text/x-python" class="py-tests">
+import matplotlib.pyplot as _plt
+assert _plt.get_fignums(), "I can't see a plot. Keep the plt.bar(...) line."
+_ax = _plt.gca()
+assert len(_ax.patches) == 3, "The plot should still show the three genes as bars."
+assert _ax.get_ylim()[0] <= 0, f"The y-axis still starts at {_ax.get_ylim()[0]:g}. A bar chart's axis must start at 0: remove plt.ylim(100, 260)."
+assert _ax.get_xlabel().strip(), "Label the x-axis, for example plt.xlabel(\"Gene\")."
+assert _ax.get_ylabel().strip(), "Label the y-axis, for example plt.ylabel(\"Treated expression (TPM)\")."
+assert "TPM" in _ax.get_ylabel(), "Include the unit in the y-axis label: TPM."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-9-3">
+    <h4><span class="exercise-tag challenge">🌶️ Challenge 9.3</span><span class="exercise-kind">✍️ Write it</span>Good reads versus poor reads</h4>
+    <p>Plot <strong>two lines</strong> on the same axes: the mean quality by position for reads whose mean quality is at least <code>MIN_MEAN_QUALITY</code> ("passed"), and for the rest ("failed"). Give each line a <code>label=</code>, add a legend, label both axes and add a title.</p>
+<script type="text/x-python" class="py-starter">
+from statistics import mean
+import matplotlib.pyplot as plt
+import pandas as pd
+from seqtools import read_fastq, phred_scores
+
+MIN_MEAN_QUALITY = 25
+
+reads = read_fastq("run42.fastq")
+all_scores = [phred_scores(read["qual"]) for read in reads]
+passed = [s for s in all_scores if mean(s) >= MIN_MEAN_QUALITY]
+failed = [s for s in all_scores if mean(s) < MIN_MEAN_QUALITY]
+
+# turn passed and failed into DataFrames, average each column, and plot two lines
+
+plt.show()
+</script>
+    <div class="hints">
+      <p>The averages by position: <code>pd.DataFrame(passed).mean()</code> and <code>pd.DataFrame(failed).mean()</code>.</p>
+      <p>Positions from 1: <code>positions = range(1, 76)</code>. Then <code>plt.plot(positions, passed_mean, label=f"passed ({len(passed)} reads)")</code>, and the same for failed.</p>
+      <p>Finish with <code>plt.xlabel(...)</code>, <code>plt.ylabel(...)</code>, <code>plt.title(...)</code> and <code>plt.legend()</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from statistics import mean
+import matplotlib.pyplot as plt
+import pandas as pd
+from seqtools import read_fastq, phred_scores
+
+MIN_MEAN_QUALITY = 25
+
+reads = read_fastq("run42.fastq")
+all_scores = [phred_scores(read["qual"]) for read in reads]
+passed = [s for s in all_scores if mean(s) >= MIN_MEAN_QUALITY]
+failed = [s for s in all_scores if mean(s) < MIN_MEAN_QUALITY]
+
+passed_mean = pd.DataFrame(passed).mean()
+failed_mean = pd.DataFrame(failed).mean()
+positions = range(1, len(passed_mean) + 1)
+
+plt.plot(positions, passed_mean, label=f"passed ({len(passed)} reads)")
+plt.plot(positions, failed_mean, label=f"failed ({len(failed)} reads)")
+plt.ylim(0, 41)
+plt.xlabel("Position in read (bases)")
+plt.ylabel("Mean Phred quality score")
+plt.title("Quality by position: passed vs failed reads")
+plt.legend()
+plt.show()
+</script>
+<script type="text/x-python" class="py-tests">
+import matplotlib.pyplot as _plt
+assert _plt.get_fignums(), "I can't see a plot yet."
+_ax = _plt.gca()
+_lines = _ax.get_lines()
+assert len(_lines) >= 2, f"I expected two lines (passed and failed), but I see {len(_lines)}."
+assert all(len(l.get_xdata()) == 75 for l in _lines[:2]), "Each line should have 75 points: one per position in the read."
+assert _ax.get_legend() is not None, "Add a legend with plt.legend() (and give each line a label=...)."
+assert _ax.get_xlabel().strip() and _ax.get_ylabel().strip(), "Label both axes."
+assert _ax.get_title().strip(), "Add a title."
+_ys = sorted([float(l.get_ydata()[0]) for l in _lines[:2]])
+assert _ys[0] < 25 < _ys[1], "One line should be the passed reads (mean quality above 25) and one the failed reads (below 25)."
+</script>
+  </div>
+
+  <div class="quiz">
+    <h3>Quick quiz</h3>
+    <div class="quiz-q">
+      <p>1. You want to see how the GC content of 10,000 reads is distributed. Which plot?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt">A histogram</button><span class="why">Right: a histogram shows how many values fall in each range.</span></li>
+        <li><button class="quiz-opt">A line plot</button><span class="why">Line plots are for values along an ordered axis, like position or time. The reads have no natural order.</span></li>
+        <li><button class="quiz-opt">A bar chart with one bar per read</button><span class="why">10,000 bars would be unreadable. A histogram groups the values into bins.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. Why should the y-axis of a bar chart start at zero?</p>
+      <ul>
+        <li><button class="quiz-opt">matplotlib can't draw it otherwise</button><span class="why">It can (with plt.ylim), and that's exactly the problem.</span></li>
+        <li data-correct><button class="quiz-opt">A bar's length represents its value, so cutting off the bottom exaggerates differences</button><span class="why">Exactly. A truncated axis can make a 1.4× difference look like 4×.</span></li>
+        <li><button class="quiz-opt">To make the plot look bigger</button><span class="why">It's about honesty, not size.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. Expression values range from 0.1 to 3000 TPM. What helps a scatter plot show them all clearly?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt">Logarithmic axes, mentioned in the axis labels</button><span class="why">Yes: on a log scale, 0.1, 1, 10, 100 and 1000 are evenly spaced. Always say the scale is logarithmic.</span></li>
+        <li><button class="quiz-opt">Removing the genes above 100 TPM</button><span class="why">Removing data to make a plot look nicer is not honest. Change the scale instead.</span></li>
+        <li><button class="quiz-opt">Making the dots bigger</button><span class="why">That doesn't solve the problem of values that differ by thousands of times.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li><code>import matplotlib.pyplot as plt</code>; draw with <code>plt.hist()</code>, <code>plt.plot()</code>, <code>plt.bar()</code> or <code>plt.scatter()</code>, then <code>plt.show()</code>.</li>
+      <li>Always add <code>plt.xlabel()</code>, <code>plt.ylabel()</code> (with units) and <code>plt.title()</code>; use <code>label=</code> and <code>plt.legend()</code> for several series.</li>
+      <li>Pick the plot for the job: histogram for distributions, line for ordered positions, bar for categories, scatter for two measurements.</li>
+      <li>Honest plots: bar charts start at 0, log scales are labelled, colours carry meaning and are colour-blind safe.</li>
+      <li>Keep the code that makes every figure; save with <code>plt.savefig()</code> on your own computer.</li>
+    </ul>
+  </div>
+  <div class="callout celebrate">
+    <span class="callout-title">🎉 Your data has pictures now!</span>
+    <p>You just drew the same kinds of plots that sequencing QC tools and published expression studies use: quality by position, GC distributions, fold changes and expression scatter plots.</p>
+  </div>
+</section>
+

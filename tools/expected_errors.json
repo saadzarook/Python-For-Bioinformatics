@@ -1,0 +1,13 @@
+{
+  "_comment": "Example boxes that show an error on purpose, per page: the lesson (section id) and the error type. The test runners don't count these as failures. Add new deliberate error demos here.",
+  "index.html": [
+    {"section": "first-python", "error": "NameError"},
+    {"section": "first-python", "error": "SyntaxError"},
+    {"section": "variables", "error": "TypeError"},
+    {"section": "dictionaries", "error": "KeyError"}
+  ],
+  "intermediate.html": [
+    {"section": "errors", "error": "ZeroDivisionError"},
+    {"section": "errors", "error": "ValueError"}
+  ]
+}

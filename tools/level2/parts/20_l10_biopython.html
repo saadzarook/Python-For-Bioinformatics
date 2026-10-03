@@ -1,0 +1,365 @@
+<!-- ======================================================================
+     LESSON 10 — BIOPYTHON, GOING FURTHER
+     ====================================================================== -->
+<section class="lesson" id="biopython-more" aria-labelledby="biopython-more-title">
+  <h2 id="biopython-more-title"><span class="lesson-kicker">Lesson 10</span>Biopython, going further</h2>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why this matters in bioinformatics</span>
+    <p>A FASTA file gives you a sequence and a name. A <a class="term" href="#g-genbank">GenBank</a> file gives you the whole story: which organism, which publication, and where the interesting parts are, such as the coding sequence, the exons and the poly-A signal. Reading these annotations, and translating sequences correctly, are everyday tasks. And when a sequence <em>hasn't</em> been annotated yet, you need to find its genes yourself, in all six reading frames.</p>
+  </div>
+
+  <h3>SeqRecord: a sequence plus everything about it</h3>
+  <p>In Level 1, each item from <code>SeqIO.parse()</code> was a "record" with <code>.id</code>, <code>.description</code> and <code>.seq</code>. Its full name is a <a class="term" href="#g-seqrecord">SeqRecord</a>: a <code>Seq</code> plus information about it. You can also make one yourself, which is handy for writing your own results as FASTA:</p>
+
+<script type="text/x-python" class="py-example">
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+
+record = SeqRecord(Seq("ATGGTGCATCTGACTCCTGAGGAGAAGTCT"),
+                   id="HBB_start",
+                   description="first 30 bases of human HBB (NM_000518.5)")
+print(record)
+print()
+print(record.format("fasta"))
+</script>
+
+  <h3>Reading a GenBank file</h3>
+  <p>This page's folder has the real NCBI GenBank record for human HBB, NM_000518.5, as <code>hbb.gb</code>. We trimmed it to keep the page small: the original lists dozens of publications and fine-grained features, and we kept one publication and the main features. Have a look at it first. It's long, but scroll through and notice the three parts: a header (LOCUS, DEFINITION…), the FEATURES table, and the sequence after ORIGIN.</p>
+  <p class="file-view-title">hbb.gb (NCBI NM_000518.5, trimmed)</p>
+  <pre class="file-view" data-show-file="hbb.gb" style="max-height: 22em"></pre>
+  <p>Biopython reads it with the format name <code>"genbank"</code>. Use <code>SeqIO.read()</code> (not <code>parse</code>) when a file holds exactly one record:</p>
+
+<script type="text/x-python" class="py-example">
+from Bio import SeqIO
+
+record = SeqIO.read("hbb.gb", "genbank")
+
+print("ID:         ", record.id)
+print("Description:", record.description)
+print("Organism:   ", record.annotations["organism"])
+print("Molecule:   ", record.annotations["molecule_type"])
+print("Length:     ", len(record), "bases")
+print("Features:   ", len(record.features))
+</script>
+
+  <h3>Features: where things are</h3>
+  <p>Each entry in the FEATURES table becomes a <a class="term" href="#g-feature">feature</a> object with a <code>.type</code> (such as <code>gene</code>, <code>exon</code> or <code>CDS</code>), a <code>.location</code>, and a dictionary of extra details called <code>.qualifiers</code>.</p>
+
+<script type="text/x-python" class="py-example">
+from Bio import SeqIO
+
+record = SeqIO.read("hbb.gb", "genbank")
+
+for feature in record.features:
+    print(f"{feature.type:12} {feature.location}")
+</script>
+
+  <div class="callout warn">
+    <span class="callout-title">⚠️ Two ways of counting, again</span>
+    <p>The GenBank file says the CDS is at <code>51..494</code>: biology numbering, from 1, and including both ends. Biopython shows <code>[50:494]</code>: a Python slice, from 0, with the end excluded. They describe exactly the same bases! To convert, subtract 1 from the start only. The <code>(+)</code> means the feature is on the forward strand; <code>(-)</code> would mean the reverse strand.</p>
+  </div>
+
+  <p>The <code>CDS</code> feature is the most interesting one: it's the <strong>coding sequence</strong>, the part that becomes protein. <code>feature.extract(record.seq)</code> cuts its sequence out for you (and, for features on the reverse strand, reverse-complements it too):</p>
+
+<script type="text/x-python" class="py-example">
+from Bio import SeqIO
+
+record = SeqIO.read("hbb.gb", "genbank")
+cds = [feature for feature in record.features if feature.type == "CDS"][0]
+
+print("Location:  ", cds.location)
+print("Biology:   ", f"{cds.location.start + 1}..{cds.location.end}")
+print("Protein ID:", cds.qualifiers["protein_id"][0])
+print("Product:   ", cds.qualifiers["product"][0])
+
+cds_seq = cds.extract(record.seq)
+print("CDS length:", len(cds_seq), "bases")
+print("Starts:    ", cds_seq[:3], " Ends:", cds_seq[-3:])
+</script>
+
+  <p>Each qualifier is a <em>list</em>, because GenBank allows a qualifier to appear more than once. That's why we write <code>[0]</code> to get the first (here, only) value.</p>
+
+  <h3>Translating with the right genetic code</h3>
+  <p>Biopython's <code>.translate()</code> has two options worth knowing. <code>cds=True</code> says "this is a complete coding sequence": Biopython then checks that it starts with a start codon, ends with a stop codon, has no stop codons in the middle and is a whole number of codons long, and raises an error if not. It's a free quality check! Let's compare our translation with the one NCBI wrote in the file:</p>
+
+<script type="text/x-python" class="py-example">
+from Bio import SeqIO
+
+record = SeqIO.read("hbb.gb", "genbank")
+cds = [feature for feature in record.features if feature.type == "CDS"][0]
+
+protein = cds.extract(record.seq).translate(cds=True)
+ncbi_protein = cds.qualifiers["translation"][0]
+
+print(protein)
+print("Length:", len(protein), "amino acids")
+print("Same as NCBI's translation:", str(protein) == ncbi_protein)
+</script>
+
+  <p>The second option is <code>table=</code>, the <a class="term" href="#g-translation-table">translation table</a>. Level 1 told you that some organisms use slightly different genetic codes. Mitochondria are the famous example: in human mitochondria, <code>TGA</code> means tryptophan (W) instead of "stop", and <code>AGA</code> means "stop" instead of arginine (R). NCBI numbers its genetic codes: table 1 is the standard code, table 2 is the vertebrate mitochondrial code.</p>
+
+<script type="text/x-python" class="py-example">
+from Bio.Seq import Seq
+
+seq = Seq("ATGTGAAGA")
+print("Standard code (table 1):          ", seq.translate(table=1))
+print("Vertebrate mitochondria (table 2):", seq.translate(table=2))
+</script>
+
+  <p>Same DNA, different proteins! If you translate a mitochondrial gene with the standard table, you get a protein full of false stops. GenBank records tell you which table to use: look for a <code>/transl_table=</code> qualifier on the CDS (when it's missing, the standard table 1 applies).</p>
+  <div class="callout fact">
+    <span class="callout-title">🤓 Did you know?</span>
+    <p>NCBI lists more than 25 genetic codes. Some ciliates (single-celled pond organisms) read <code>TAA</code> and <code>TAG</code> as glutamine, and a few bacteria use the stop codon <code>TGA</code> to insert a 21st amino acid, selenocysteine. The "universal" genetic code is <em>almost</em> universal.</p>
+  </div>
+
+  <h3>Six-frame translation</h3>
+  <p>When you receive a new sequence with no annotation, you don't know where its gene is, or even which strand it's on. Each strand can be read in 3 <a href="index.html#g-reading-frame">reading frames</a> (starting at base 1, 2 or 3), and there are 2 strands, so there are <strong>six frames</strong> to check. For the reverse strand, translate the reverse complement.</p>
+  <p>One detail: Biopython warns you when a sequence isn't a whole number of codons long. To keep things tidy, we trim each frame to a multiple of 3 first, using <code>//</code> from Level 1.</p>
+
+<script type="text/x-python" class="py-example">
+from Bio import SeqIO
+
+mrna = SeqIO.read("hbb.gb", "genbank").seq     # all 628 bases of the HBB mRNA
+
+for strand, nucleotides in [("+", mrna), ("-", mrna.reverse_complement())]:
+    for frame in range(3):
+        piece = nucleotides[frame:]
+        piece = piece[:len(piece) // 3 * 3]           # trim to whole codons
+        protein = piece.translate()
+        print(f"Frame {strand}{frame + 1}: {protein[:50]}...")
+</script>
+
+  <p>Look at frame +3: <code>…QTDTMVHLTPEEKS…</code>. There's beta-globin, starting at the <code>M</code>! The coding sequence starts at base 51, and 51 is in frame 3 (frame 1 holds bases 1, 4, 7, …, 49, 52; frame 3 holds 3, 6, …, 48, 51). The other frames are full of <code>*</code> stop codons, which is typical: random sequence hits a stop codon about every 21 codons (3 of the 64 codons are stops).</p>
+
+  <h3>🧪 Project: find the longest ORF</h3>
+  <p>A simple way to guess where a gene is: find the longest <a class="term" href="#g-orf">open reading frame</a> in all six frames. In each translated frame, the stretches between stop codons are separated by <code>*</code>, so <code>.split("*")</code> gives them as a list. In each stretch, an ORF starts at the first <code>M</code>:</p>
+
+<script type="text/x-python" class="py-example">
+from Bio import SeqIO
+
+
+def six_frames(seq):
+    """Return the 6 translated frames of seq as a list of (frame name, protein string) pairs."""
+    frames = []
+    for strand, nucleotides in [("+", seq), ("-", seq.reverse_complement())]:
+        for frame in range(3):
+            piece = nucleotides[frame:]
+            piece = piece[:len(piece) // 3 * 3]
+            frames.append((f"{strand}{frame + 1}", str(piece.translate())))
+    return frames
+
+
+def longest_orf(seq):
+    """Return (frame name, protein) for the longest ORF (M ... up to a stop) in any of the six frames."""
+    best_frame, best_protein = None, ""
+    for frame_name, protein in six_frames(seq):
+        for stretch in protein.split("*"):
+            if "M" in stretch:
+                orf = stretch[stretch.index("M"):]       # from the first M to the end of the stretch
+                if len(orf) > len(best_protein):
+                    best_frame, best_protein = frame_name, orf
+    return best_frame, best_protein
+
+
+mrna = SeqIO.read("hbb.gb", "genbank").seq
+frame, protein = longest_orf(mrna)
+print(f"Longest ORF: frame {frame}, {len(protein)} amino acids")
+print(protein)
+</script>
+
+  <p>147 amino acids in frame +3: exactly the beta-globin protein that NCBI annotated. Without reading the annotation at all, a few lines of code found the gene. 🎉 (Real gene finders are smarter: they model splicing, codon usage and more. But "longest ORF" is a surprisingly good first guess for an mRNA.)</p>
+  <p>Notice <code>best_frame, best_protein = None, ""</code>: you can set two variables in one line. A function can also <code>return</code> two values at once, as <code>longest_orf</code> does; they come back as a pair (a <a class="term" href="#g-tuple">tuple</a>), which you can unpack straight into two variables.</p>
+  <div class="callout warn">
+    <span class="callout-title">⚠️ An ORF that runs off the end</span>
+    <p>If a stretch has no <code>*</code> after it, the ORF runs off the end of the sequence without a stop codon. It might be a real gene that's cut off, or just chance. Our simple function counts it anyway; careful tools report it separately.</p>
+  </div>
+
+  <h3>Exercises</h3>
+  <div class="exercise" id="ex-10-1">
+    <h4><span class="exercise-tag">Exercise 10.1</span><span class="exercise-kind">✍️ Write it</span>Where are the exons?</h4>
+    <p>Read <code>hbb.gb</code> and build a list <code>exons</code> with the location of each <code>exon</code> feature, in <strong>biology numbering</strong>, as strings like <code>"1..142"</code>. Then store the total length of all the exons in <code>total_exon_length</code>.</p>
+<script type="text/x-python" class="py-starter">
+from Bio import SeqIO
+
+record = SeqIO.read("hbb.gb", "genbank")
+
+exons = []
+total_exon_length = 0
+# loop over record.features here
+
+
+print(exons)
+print("Total exon length:", total_exon_length)
+</script>
+    <div class="hints">
+      <p>Loop with <code>for feature in record.features:</code> and keep only <code>if feature.type == "exon":</code>.</p>
+      <p>Biology numbering: <code>f"{feature.location.start + 1}..{feature.location.end}"</code>. The exon's length is <code>len(feature)</code> (or <code>feature.location.end - feature.location.start</code>).</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from Bio import SeqIO
+
+record = SeqIO.read("hbb.gb", "genbank")
+
+exons = []
+total_exon_length = 0
+for feature in record.features:
+    if feature.type == "exon":
+        exons.append(f"{feature.location.start + 1}..{feature.location.end}")
+        total_exon_length += len(feature)
+
+print(exons)
+print("Total exon length:", total_exon_length)
+</script>
+<script type="text/x-python" class="py-tests">
+assert exons != [], "exons is still empty. Add one location string per exon feature."
+assert exons != ["0..142", "142..365", "365..628"], "Those are Python positions. Add 1 to the start to get biology numbering."
+assert exons == ["1..142", "143..365", "366..628"], f"Expected ['1..142', '143..365', '366..628'] but got {exons}."
+assert total_exon_length == 628, f"The three exons cover the whole 628-base mRNA, but total_exon_length is {total_exon_length}."
+</script>
+    <p>The exons add up to the full mRNA length: an mRNA is made of exons joined together after the introns are spliced out. That's why this record has no introns in it. They're only in the gene's DNA on chromosome 11.</p>
+  </div>
+
+  <div class="exercise" id="ex-10-2">
+    <h4><span class="exercise-tag">Exercise 10.2</span><span class="exercise-kind">🔮 Predict, then run</span>Mitochondrial or standard?</h4>
+    <p>Here's a short made-up sequence. <strong>Before running</strong>, use the facts above to predict its translation with the standard code (table 1) and with the vertebrate mitochondrial code (table 2). Remember: the standard code has <code>ATG</code> = M, <code>TGG</code> = W, <code>TGA</code> = stop, <code>AGG</code> = R; in table 2, <code>TGA</code> = W and <code>AGA</code>/<code>AGG</code> = stop.</p>
+<script type="text/x-python" class="py-starter">
+from Bio.Seq import Seq
+
+my_table_1 = None   # your prediction, as a string, such as "M*W"
+my_table_2 = None
+
+seq = Seq("ATGTGGTGAAGG")
+print("Table 1:", seq.translate(table=1))
+print("Table 2:", seq.translate(table=2))
+</script>
+    <div class="hints">
+      <p>Split it into codons first: ATG TGG TGA AGG.</p>
+      <p>Standard: M, W, stop (*), R. Mitochondrial: M, W, W, stop (*).</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from Bio.Seq import Seq
+
+my_table_1 = "MW*R"
+my_table_2 = "MWW*"
+
+seq = Seq("ATGTGGTGAAGG")
+print("Table 1:", seq.translate(table=1))
+print("Table 2:", seq.translate(table=2))
+</script>
+<script type="text/x-python" class="py-tests">
+assert my_table_1 is not None and my_table_2 is not None, "Write both predictions first, as strings."
+assert str(my_table_1) == "MW*R", f"With the standard code, ATG TGG TGA AGG gives MW*R, not {my_table_1!r}."
+assert str(my_table_2) == "MWW*", f"With the mitochondrial code, TGA is W and AGG is a stop, so it's MWW*, not {my_table_2!r}."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-10-3">
+    <h4><span class="exercise-tag challenge">🌶️ Challenge 10.3</span><span class="exercise-kind">✍️ Write it</span>A gene on the other strand</h4>
+    <p>Complete <code>longest_orf_length(seq)</code>: it should return the length, in amino acids, of the longest ORF in any of the <strong>six</strong> frames of a Biopython <code>Seq</code>. The test sequence hides a 10-amino-acid ORF on the reverse strand, so checking only the forward strand isn't enough.</p>
+<script type="text/x-python" class="py-starter">
+from Bio.Seq import Seq
+
+
+def longest_orf_length(seq):
+    """Return the length (in amino acids) of the longest ORF in the six frames of seq."""
+    longest = 0
+    for frame in range(3):            # only the forward strand so far!
+        piece = seq[frame:]
+        piece = piece[:len(piece) // 3 * 3]
+        for stretch in str(piece.translate()).split("*"):
+            if "M" in stretch:
+                longest = max(longest, len(stretch) - stretch.index("M"))
+    return longest
+
+
+mystery = Seq("CCCTTAGTGGAAGCCGAAGCCCTCCAGTGTGCCCATGG")
+print(longest_orf_length(mystery))   # should be 10
+</script>
+    <div class="hints">
+      <p>The function already does the forward strand. Wrap the <code>for frame</code> loop in another loop over both strands: <code>for nucleotides in [seq, seq.reverse_complement()]:</code></p>
+      <p>Inside, use <code>nucleotides[frame:]</code> instead of <code>seq[frame:]</code>. <code>max(a, b)</code> gives the bigger of two numbers.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from Bio.Seq import Seq
+
+
+def longest_orf_length(seq):
+    """Return the length (in amino acids) of the longest ORF in the six frames of seq."""
+    longest = 0
+    for nucleotides in [seq, seq.reverse_complement()]:
+        for frame in range(3):
+            piece = nucleotides[frame:]
+            piece = piece[:len(piece) // 3 * 3]
+            for stretch in str(piece.translate()).split("*"):
+                if "M" in stretch:
+                    longest = max(longest, len(stretch) - stretch.index("M"))
+    return longest
+
+
+mystery = Seq("CCCTTAGTGGAAGCCGAAGCCCTCCAGTGTGCCCATGG")
+print(longest_orf_length(mystery))   # should be 10
+</script>
+<script type="text/x-python" class="py-tests">
+from Bio.Seq import Seq as _Seq
+_r = longest_orf_length(_Seq("CCCTTAGTGGAAGCCGAAGCCCTCCAGTGTGCCCATGG"))
+assert _r >= 10, f"Your function found an ORF of only {_r} amino acid(s): the 10-amino-acid ORF is on the reverse strand. Loop over seq.reverse_complement() too."
+assert _r == 10, f"The longest ORF in the mystery sequence is 10 amino acids, but your function says {_r}."
+assert longest_orf_length(_Seq("ATGGCCTAA")) == 2, "For ATGGCCTAA (forward strand), the ORF MA has 2 amino acids."
+assert longest_orf_length(_Seq("TTAGGCCAT")) == 2, "TTAGGCCAT is the reverse complement of ATGGCCTAA, so its longest ORF also has 2 amino acids."
+assert longest_orf_length(_Seq("CCCCCCCCC")) == 0, "A sequence with no ATG on either strand has no ORF: the answer should be 0."
+</script>
+  </div>
+
+  <div class="quiz">
+    <h3>Quick quiz</h3>
+    <div class="quiz-q">
+      <p>1. A GenBank CDS is at <code>51..494</code>. Which Python slice gives the same bases?</p>
+      <ul>
+        <li><button class="quiz-opt"><code>seq[51:494]</code></button><span class="why">That misses base 51, which is index 50 in Python.</span></li>
+        <li data-correct><button class="quiz-opt"><code>seq[50:494]</code></button><span class="why">Right: subtract 1 from the start; the end stays the same because Python slices exclude the end.</span></li>
+        <li><button class="quiz-opt"><code>seq[50:493]</code></button><span class="why">That would miss the last base, 494.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. Why does it matter which translation table you use?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt">Some organisms and organelles read a few codons differently, so the same DNA gives a different protein</button><span class="why">Exactly. For example, TGA is a stop in the standard code but tryptophan in vertebrate mitochondria.</span></li>
+        <li><button class="quiz-opt">Each table is faster for different sequence lengths</button><span class="why">Tables are about biology, not speed.</span></li>
+        <li><button class="quiz-opt">It only changes how the protein is printed</button><span class="why">It changes the actual amino acids, and where translation stops.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. How many reading frames does a double-stranded DNA sequence have?</p>
+      <ul>
+        <li><button class="quiz-opt">3</button><span class="why">That's for one strand. The other strand has 3 more.</span></li>
+        <li data-correct><button class="quiz-opt">6</button><span class="why">Yes: 3 frames on the forward strand and 3 on the reverse complement.</span></li>
+        <li><button class="quiz-opt">64</button><span class="why">64 is the number of codons, not frames.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>4. What does <code>translate(cds=True)</code> do that plain <code>translate()</code> doesn't?</p>
+      <ul>
+        <li><button class="quiz-opt">It translates both strands</button><span class="why">It only translates the sequence you give it.</span></li>
+        <li data-correct><button class="quiz-opt">It checks for a proper start, a final stop, no stops in the middle and whole codons, and leaves out the final stop</button><span class="why">Right: a built-in sanity check for a complete coding sequence.</span></li>
+        <li><button class="quiz-opt">It uses the mitochondrial code</button><span class="why">The table is set separately, with table=.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li>A SeqRecord is a <code>Seq</code> plus its ID, description, annotations and features.</li>
+      <li><code>SeqIO.read(file, "genbank")</code> reads a GenBank record; <code>record.features</code> lists its features, each with <code>.type</code>, <code>.location</code> and <code>.qualifiers</code>.</li>
+      <li>GenBank <code>51..494</code> = Python <code>[50:494]</code>. <code>feature.extract(record.seq)</code> cuts a feature's sequence out.</li>
+      <li><code>.translate(cds=True)</code> checks a complete CDS; <code>table=</code> picks the genetic code (1 = standard, 2 = vertebrate mitochondrial).</li>
+      <li>Six frames = 3 per strand. The longest ORF is a good first guess for where a gene is.</li>
+    </ul>
+  </div>
+  <div class="callout celebrate">
+    <span class="callout-title">🎉 Gene finder!</span>
+    <p>You just read a real GenBank record, checked NCBI's translation, and found the beta-globin gene in an mRNA without looking at the annotation. That's genuine genome-annotation thinking.</p>
+  </div>
+</section>
+

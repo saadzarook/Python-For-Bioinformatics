@@ -1,0 +1,396 @@
+<!-- ======================================================================
+     LESSON 4 — PATTERN FINDING WITH REGULAR EXPRESSIONS
+     ====================================================================== -->
+<section class="lesson" id="regex" aria-labelledby="regex-title">
+  <h2 id="regex-title"><span class="lesson-kicker">Lesson 4</span>Pattern finding with regular expressions</h2>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why this matters in bioinformatics</span>
+    <p>Biology is full of short sequence patterns, called <a class="term" href="#g-motif">motifs</a>: the sites where restriction enzymes cut, the signal that tells a cell where to end an mRNA, the start and stop of a gene. Some motifs are fixed strings, but many are flexible: "G, then A or G, then any base…". <code>.find()</code> only finds one exact string, once. A <a class="term" href="#g-regex">regular expression</a> (regex for short) describes a whole <em>family</em> of strings, and finds every match.</p>
+  </div>
+
+  <h3>Your first regex: finding a restriction site</h3>
+  <p><a class="term" href="#g-restriction-enzyme">Restriction enzymes</a> are bacterial proteins that cut DNA at a specific <a class="term" href="#g-recognition-site">recognition site</a>. The famous EcoRI cuts at <code>GAATTC</code>. Molecular biologists use them every day for cloning, so knowing where the sites are in your gene matters.</p>
+  <p>Python's regex tools are in the <code>re</code> module. <code>re.finditer(pattern, text)</code> finds every match, and each match knows where it starts (<code>.start()</code>) and what it matched (<code>.group()</code>). Let's search the complete human HBB mRNA (NM_000518.5, 628 bases). It's saved in this page's folder as <code>efetch_hbb.fasta</code>; you'll see where that file comes from in Lesson 12. To read it we use <code>read_fasta()</code> from our <code>seqtools</code> module:</p>
+
+<script type="text/x-python" class="py-example">
+import re
+from seqtools import read_fasta
+
+mrna = read_fasta("efetch_hbb.fasta")["NM_000518.5"]   # human HBB mRNA, 628 bases
+print("Length:", len(mrna))
+
+for match in re.finditer(r"GAATTC", mrna):
+    print(f"EcoRI site {match.group()} at position {match.start() + 1}")
+
+for match in re.finditer(r"GGATCC", mrna):
+    print(f"BamHI site {match.group()} at position {match.start() + 1}")
+</script>
+
+  <p>Two things to notice:</p>
+  <ul>
+    <li><code>match.start()</code> counts from 0, like all Python indexes, so we add 1 to report biology positions. (In this mRNA, the coding sequence runs from base 51 to 494, so both sites are inside the coding sequence.)</li>
+    <li>The pattern is written <code>r"GAATTC"</code>, with an <code>r</code> before the quote. That makes it a <a class="term" href="#g-raw-string">raw string</a>, in which backslashes <code>\</code> are left alone. Patterns often contain backslashes, so it's a good habit to always write patterns as raw strings.</li>
+  </ul>
+
+  <p>The <code>re</code> module has three functions you'll use most:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Function</th><th>Gives you</th><th>Good for</th></tr></thead>
+      <tbody>
+        <tr><td><code>re.search(p, text)</code></td><td>the first match, or <code>None</code></td><td>"Is the motif there at all?"</td></tr>
+        <tr><td><code>re.findall(p, text)</code></td><td>a list of the matched strings</td><td>Counting matches</td></tr>
+        <tr><td><code>re.finditer(p, text)</code></td><td>every match, with its position</td><td>"Where exactly is each one?"</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+<script type="text/x-python" class="py-example">
+import re
+
+seq = "ATGGAATTCCGTAGAATTCAAGGATCC"
+
+print(re.search(r"GAATTC", seq) is not None)   # "is not None" = "did it find something?"
+print(re.findall(r"GAATTC", seq))              # the matches as a list
+print(len(re.findall(r"GAATTC", seq)), "EcoRI sites")
+print(re.search(r"AAGCTT", seq))               # HindIII: no match gives None
+</script>
+
+  <div class="callout fact">
+    <span class="callout-title">🤓 Did you know?</span>
+    <p>Most restriction sites are <strong>palindromes</strong>: the site reads the same on both strands. The reverse complement of <code>GAATTC</code> is… <code>GAATTC</code>! That's because many restriction enzymes work as two identical halves, one gripping each strand. EcoRI is named after <em>E. coli</em> strain RY13, the bacterium it was found in, and it was the first enzyme isolated from that strain ("I").</p>
+  </div>
+
+  <h3>Flexible patterns: character classes</h3>
+  <p>Square brackets mean "any <strong>one</strong> of these characters". <code>[AG]</code> matches A or G (a purine) and <code>[CT]</code> matches C or T (a pyrimidine). A dot <code>.</code> matches <strong>any</strong> single character.</p>
+  <p>Biologists write flexible motifs with <a class="term" href="#g-iupac">IUPAC codes</a>: single letters that stand for a group of bases. Each one becomes a character class in regex:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>IUPAC code</th><th>Means</th><th>Regex</th></tr></thead>
+      <tbody>
+        <tr><td><code>R</code></td><td>puRine: A or G</td><td><code>[AG]</code></td></tr>
+        <tr><td><code>Y</code></td><td>pYrimidine: C or T</td><td><code>[CT]</code></td></tr>
+        <tr><td><code>W</code></td><td>Weak: A or T</td><td><code>[AT]</code></td></tr>
+        <tr><td><code>S</code></td><td>Strong: G or C</td><td><code>[GC]</code></td></tr>
+        <tr><td><code>N</code></td><td>aNy base</td><td><code>.</code> (or <code>[ACGT]</code>)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>For example, the enzyme HincII cuts at <code>GTYRAC</code>, which is the regex <code>GT[CT][AG]AC</code>. That one pattern covers four different sites: <code>GTCAAC</code>, <code>GTCGAC</code>, <code>GTTAAC</code> and <code>GTTGAC</code>.</p>
+
+<script type="text/x-python" class="py-example">
+import re
+
+HINCII = r"GT[CT][AG]AC"          # GTYRAC in IUPAC code
+seq = "AAGTCAACTTGTTGACAAGTCGAC"
+
+for match in re.finditer(HINCII, seq):
+    print(match.group(), "at position", match.start() + 1)
+</script>
+
+  <div class="callout bio">
+    <span class="callout-title">🔬 A restriction enzyme that spots sickle cell disease</span>
+    <p>Remember the sickle cell mutation from Level 1? Codon 7 of HBB changes from <code>GAG</code> to <code>GTG</code>. The enzyme DdeI cuts at <code>CTNAG</code> (N = any base), regex <code>CT.AG</code>. The normal gene has a DdeI site right at that spot, <code>CCT<strong>GAG</strong>G</code>, and the mutation destroys it. Before DNA sequencing was cheap, labs diagnosed sickle cell disease exactly like this: cut the DNA with an enzyme and look at the size of the pieces on a gel.</p>
+  </div>
+
+<script type="text/x-python" class="py-example">
+import re
+
+DDEI = r"CT.AG"     # CTNAG
+normal = "ATGGTGCATCTGACTCCTGAGGAGAAGTCT"   # HBB, first 30 bases (NM_000518.5)
+sickle = "ATGGTGCATCTGACTCCTGTGGAGAAGTCT"   # the same with the sickle mutation (A -> T at base 20)
+
+print("Normal DdeI sites:", [m.start() + 1 for m in re.finditer(DDEI, normal)])
+print("Sickle DdeI sites:", [m.start() + 1 for m in re.finditer(DDEI, sickle)])
+</script>
+
+  <h3>Repeats and alternatives</h3>
+  <p>A few more symbols cover most of what you'll need in biology:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Symbol</th><th>Means</th><th>Example</th><th>Matches</th></tr></thead>
+      <tbody>
+        <tr><td><code>{n}</code></td><td>exactly <em>n</em> times</td><td><code>A{6}</code></td><td><code>AAAAAA</code></td></tr>
+        <tr><td><code>{m,n}</code></td><td>between <em>m</em> and <em>n</em> times</td><td><code>CA{2,4}T</code></td><td><code>CAAT</code>, <code>CAAAT</code>, <code>CAAAAT</code></td></tr>
+        <tr><td><code>+</code></td><td>once or more</td><td><code>GA+T</code></td><td><code>GAT</code>, <code>GAAT</code>, <code>GAAAAT</code>…</td></tr>
+        <tr><td><code>*</code></td><td>zero times or more</td><td><code>GA*T</code></td><td><code>GT</code>, <code>GAT</code>, <code>GAAT</code>…</td></tr>
+        <tr><td><code>|</code></td><td>or</td><td><code>TAA|TAG|TGA</code></td><td>any stop codon</td></tr>
+        <tr><td><code>( )</code></td><td>groups a piece of the pattern</td><td><code>(CA)+</code></td><td><code>CA</code>, <code>CACA</code>, <code>CACACA</code>…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Near its end, almost every human mRNA has the signal <code>AATAAA</code>, which tells the cell "cut here and add a poly-A tail". Let's find it in HBB, plus any run of five or more As:</p>
+
+<script type="text/x-python" class="py-example">
+import re
+from seqtools import read_fasta
+
+mrna = read_fasta("efetch_hbb.fasta")["NM_000518.5"]
+
+for match in re.finditer(r"AATAAA", mrna):
+    print("Polyadenylation signal at", match.start() + 1)
+
+for match in re.finditer(r"A{5,}", mrna):
+    print(f"Run of {len(match.group())} As at", match.start() + 1)
+
+print("Stop codons (any frame):", len(re.findall(r"TAA|TAG|TGA", mrna)))
+</script>
+
+  <p>Position 602 matches the NCBI record exactly: it lists a <code>polyA_signal_sequence</code> at bases 602..607. Your regex just rediscovered a real annotation. 🎉</p>
+
+  <h3>🧪 Project: finding open reading frames</h3>
+  <p>An <a class="term" href="#g-orf">open reading frame</a> (ORF) is a stretch of DNA that could code for a protein: it starts with <code>ATG</code>, continues in whole codons, and ends at the first stop codon in the same frame. That's a pattern, so let's write it as a regex, one piece at a time:</p>
+  <div class="seq-figure">
+<pre aria-label="Anatomy of the ORF pattern">
+ ATG   (...)*?          (TAA|TAG|TGA)
+ │     │                └── then a stop codon
+ │     └── any number of codons (... = any 3 bases),
+ │         but as FEW as possible (the ?)
+ └── start codon
+</pre>
+  </div>
+  <p>The <code>?</code> after <code>*</code> is important. Normally <code>*</code> is <em>greedy</em>: it grabs as much as it can. <code>*?</code> is <em>lazy</em>: it stops at the first stop codon it meets, which is exactly how a ribosome behaves.</p>
+
+<script type="text/x-python" class="py-example">
+import re
+from seqtools import read_fasta
+
+ORF_PATTERN = r"ATG(...)*?(TAA|TAG|TGA)"
+mrna = read_fasta("efetch_hbb.fasta")["NM_000518.5"]
+
+for match in re.finditer(ORF_PATTERN, mrna):
+    start = match.start() + 1
+    end = match.end()               # .end() is just after the match, so it's already the last base in biology numbering
+    length = len(match.group())
+    print(f"ORF from base {start} to {end}: {length} bases, {length // 3 - 1} amino acids")
+</script>
+
+  <p>The first ORF runs from base 51 to 494, exactly the coding sequence that NCBI annotates for HBB (444 bases: 147 amino acids plus the stop codon). The second, short one is just chance: random sequence contains short ORFs all the time.</p>
+  <div class="callout warn">
+    <span class="callout-title">⚠️ Limits of regex ORF finding</span>
+    <p>Regex matches <strong>never overlap</strong>, so an ORF hiding inside another one is skipped, and this only searches one strand. Compare <code>re.findall(r"AA", "AAAA")</code>: you might expect 3 matches, but you get 2. Regex is great for a quick first look; in Lesson 10 you'll find ORFs properly, in all six reading frames.</p>
+  </div>
+
+  <h3>Exercises</h3>
+  <div class="exercise" id="ex-4-1">
+    <h4><span class="exercise-tag">Exercise 4.1</span><span class="exercise-kind">✍️ Write it</span>Where are the sites?</h4>
+    <p>Complete <code>find_sites(seq, pattern)</code> so it returns a list of the <strong>biology positions</strong> (counting from 1) where <code>pattern</code> matches in <code>seq</code>. Use <code>re.finditer()</code>.</p>
+<script type="text/x-python" class="py-starter">
+import re
+
+
+def find_sites(seq, pattern):
+    """Return the 1-based start positions of every match of pattern in seq."""
+    return []
+
+
+print(find_sites("ATGGAATTCCGTAGAATTCAA", r"GAATTC"))   # should be [4, 14]
+</script>
+    <div class="hints">
+      <p>A list comprehension works well here: <code>[... for match in re.finditer(pattern, seq)]</code>.</p>
+      <p>For each match, the position is <code>match.start() + 1</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import re
+
+
+def find_sites(seq, pattern):
+    """Return the 1-based start positions of every match of pattern in seq."""
+    return [match.start() + 1 for match in re.finditer(pattern, seq)]
+
+
+print(find_sites("ATGGAATTCCGTAGAATTCAA", r"GAATTC"))   # should be [4, 14]
+</script>
+<script type="text/x-python" class="py-tests">
+_r = find_sites("ATGGAATTCCGTAGAATTCAA", r"GAATTC")
+assert _r != [3, 13], "Close! Those are Python indexes. Add 1 to get biology positions."
+assert _r == [4, 14], f"Expected [4, 14] but got {_r}."
+assert find_sites("GGATCC", r"GGATCC") == [1], "A match at the very start should be position 1."
+assert find_sites("AAAA", r"GAATTC") == [], "No match should give an empty list."
+assert find_sites("AAGTCAACTTGTTGACAA", r"GT[CT][AG]AC") == [3, 11], "find_sites should work with flexible patterns too: GT[CT][AG]AC should match at 3 and 11."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-4-2">
+    <h4><span class="exercise-tag">Exercise 4.2</span><span class="exercise-kind">✍️ Write it</span>Diagnose with MstII</h4>
+    <p>Another enzyme, MstII, recognises <code>CCTNAGG</code> (N = any base). Write the regex in <code>MSTII</code>, then count the sites in the normal and the sickle HBB fragments, storing the counts in <code>normal_sites</code> and <code>sickle_sites</code>.</p>
+<script type="text/x-python" class="py-starter">
+import re
+
+MSTII = r""      # write CCTNAGG as a regex
+
+normal = "ATGGTGCATCTGACTCCTGAGGAGAAGTCT"
+sickle = "ATGGTGCATCTGACTCCTGTGGAGAAGTCT"
+
+normal_sites = 0
+sickle_sites = 0
+
+print("Normal:", normal_sites, "site(s)")
+print("Sickle:", sickle_sites, "site(s)")
+</script>
+    <div class="hints">
+      <p>N means "any base", which is a dot in regex: <code>r"CCT.AGG"</code>.</p>
+      <p>Count matches with <code>len(re.findall(MSTII, normal))</code>, and the same for <code>sickle</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import re
+
+MSTII = r"CCT.AGG"
+
+normal = "ATGGTGCATCTGACTCCTGAGGAGAAGTCT"
+sickle = "ATGGTGCATCTGACTCCTGTGGAGAAGTCT"
+
+normal_sites = len(re.findall(MSTII, normal))
+sickle_sites = len(re.findall(MSTII, sickle))
+
+print("Normal:", normal_sites, "site(s)")
+print("Sickle:", sickle_sites, "site(s)")
+</script>
+<script type="text/x-python" class="py-tests">
+import re as _re
+assert MSTII != "", "MSTII is still empty. Write the pattern, with a dot for N."
+for _s in ["CCTAAGG", "CCTCAGG", "CCTGAGG", "CCTTAGG"]:
+    assert _re.fullmatch(MSTII, _s), f"Your pattern should match {_s} (N can be any base)."
+for _s in ["CCTAAGC", "CCAGG", "CTTGAGG"]:
+    assert not _re.fullmatch(MSTII, _s), f"Your pattern shouldn't match {_s}."
+assert normal_sites == 1, f"The normal fragment has 1 MstII site, but normal_sites is {normal_sites}."
+assert sickle_sites == 0, f"The sickle mutation destroys the site, so sickle_sites should be 0, not {sickle_sites}."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-4-3">
+    <h4><span class="exercise-tag">Exercise 4.3</span><span class="exercise-kind">🐞 Fix the bug</span>The ORF that never ends</h4>
+    <p>This function should return every ORF in a sequence, but for the test sequence it returns one huge "ORF" that runs straight through the first stop codon. Fix the pattern. The check will test other sequences too.</p>
+<script type="text/x-python" class="py-starter">
+import re
+
+
+def find_orfs(seq):
+    """Return a list of ORFs (ATG ... first in-frame stop codon) found in seq."""
+    return [match.group() for match in re.finditer(r"ATG(...)*(TAA|TAG|TGA)", seq)]
+
+
+print(find_orfs("CCATGAAATAGCCCATGTTTGGGTGACC"))   # should be ['ATGAAATAG', 'ATGTTTGGGTGA']
+</script>
+    <div class="hints">
+      <p>The output has only one ORF, and it contains the stop codon <code>TAG</code> in the middle. The pattern grabs as much as it can: it's <em>greedy</em>.</p>
+      <p>Make the codon repeat lazy by adding a <code>?</code> straight after the <code>*</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import re
+
+
+def find_orfs(seq):
+    """Return a list of ORFs (ATG ... first in-frame stop codon) found in seq."""
+    return [match.group() for match in re.finditer(r"ATG(...)*?(TAA|TAG|TGA)", seq)]
+
+
+print(find_orfs("CCATGAAATAGCCCATGTTTGGGTGACC"))   # should be ['ATGAAATAG', 'ATGTTTGGGTGA']
+</script>
+<script type="text/x-python" class="py-tests">
+_r = find_orfs("CCATGAAATAGCCCATGTTTGGGTGACC")
+assert len(_r) != 1, "Still one long ORF. Make the repeat lazy: *? instead of *."
+assert _r == ["ATGAAATAG", "ATGTTTGGGTGA"], f"Expected ['ATGAAATAG', 'ATGTTTGGGTGA'] but got {_r}."
+assert find_orfs("ATGTAAATGCCCTAG") == ["ATGTAA", "ATGCCCTAG"], f"For 'ATGTAAATGCCCTAG' expected ['ATGTAA', 'ATGCCCTAG'] but got {find_orfs('ATGTAAATGCCCTAG')}."
+assert find_orfs("CCCGGG") == [], "A sequence without ATG has no ORFs."
+assert find_orfs("ATGATAAGTTGA") == ["ATGATAAGTTGA"], "The stop codon must be in frame: in ATG ATA AGT TGA, the letters TAA (inside ATA AGT) aren't a codon. Did you keep (...) for whole codons?"
+</script>
+  </div>
+
+  <div class="exercise" id="ex-4-4">
+    <h4><span class="exercise-tag challenge">🌶️ Challenge 4.4</span><span class="exercise-kind">✍️ Write it</span>From IUPAC code to regex</h4>
+    <p>Complete <code>iupac_to_regex(motif)</code> so it turns a motif written in IUPAC code into a regex, using the <code>IUPAC</code> dictionary. For example, <code>"GTYRAC"</code> should become <code>"GT[CT][AG]AC"</code>, and <code>"CTNAG"</code> should become <code>"CT.AG"</code>.</p>
+<script type="text/x-python" class="py-starter">
+import re
+
+IUPAC = {
+    "A": "A", "C": "C", "G": "G", "T": "T",
+    "R": "[AG]", "Y": "[CT]", "W": "[AT]", "S": "[GC]", "K": "[GT]", "M": "[AC]",
+    "N": ".",
+}
+
+
+def iupac_to_regex(motif):
+    """Translate an IUPAC DNA motif (such as GTYRAC) into a regex (GT[CT][AG]AC)."""
+    return motif
+
+
+pattern = iupac_to_regex("GTYRAC")
+print(pattern)
+print(re.findall(pattern, "AAGTCAACTTGTTGACAAGTCGAC"))
+</script>
+    <div class="hints">
+      <p>Look up each letter of the motif in <code>IUPAC</code> and glue the results together.</p>
+      <p>One way: <code>"".join([IUPAC[letter] for letter in motif])</code>. Using <code>motif.upper()</code> makes it work for lowercase motifs too.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import re
+
+IUPAC = {
+    "A": "A", "C": "C", "G": "G", "T": "T",
+    "R": "[AG]", "Y": "[CT]", "W": "[AT]", "S": "[GC]", "K": "[GT]", "M": "[AC]",
+    "N": ".",
+}
+
+
+def iupac_to_regex(motif):
+    """Translate an IUPAC DNA motif (such as GTYRAC) into a regex (GT[CT][AG]AC)."""
+    return "".join([IUPAC[letter] for letter in motif.upper()])
+
+
+pattern = iupac_to_regex("GTYRAC")
+print(pattern)
+print(re.findall(pattern, "AAGTCAACTTGTTGACAAGTCGAC"))
+</script>
+<script type="text/x-python" class="py-tests">
+assert iupac_to_regex("GTYRAC") == "GT[CT][AG]AC", f"iupac_to_regex('GTYRAC') should be 'GT[CT][AG]AC' but gave {iupac_to_regex('GTYRAC')!r}."
+assert iupac_to_regex("CTNAG") == "CT.AG", f"iupac_to_regex('CTNAG') should be 'CT.AG' but gave {iupac_to_regex('CTNAG')!r}."
+assert iupac_to_regex("GAATTC") == "GAATTC", "Plain bases should stay as they are."
+assert iupac_to_regex("TATAWAW") == "TATA[AT]A[AT]", "iupac_to_regex('TATAWAW') should be 'TATA[AT]A[AT]' (this is the TATA box consensus)."
+</script>
+  </div>
+
+  <div class="quiz">
+    <h3>Quick quiz</h3>
+    <div class="quiz-q">
+      <p>1. Which strings does the pattern <code>G[AG]ATC</code> match?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt"><code>GAATC</code> and <code>GGATC</code></button><span class="why">Right: [AG] matches exactly one character, either A or G.</span></li>
+        <li><button class="quiz-opt">Only <code>G[AG]ATC</code> itself</button><span class="why">In a regex, square brackets aren't matched literally: they mean "one of these characters".</span></li>
+        <li><button class="quiz-opt"><code>GAGATC</code></button><span class="why">[AG] matches ONE character, not both A and G.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. A match object says <code>match.start()</code> is 9. What's the position in biology numbering?</p>
+      <ul>
+        <li><button class="quiz-opt">9</button><span class="why">.start() is a Python index, which counts from 0.</span></li>
+        <li data-correct><button class="quiz-opt">10</button><span class="why">Yes: add 1 to convert a Python index to a 1-based biology position.</span></li>
+        <li><button class="quiz-opt">8</button><span class="why">It's the other way round: biology positions are one higher than Python indexes.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. In the ORF pattern <code>ATG(...)*?(TAA|TAG|TGA)</code>, what does the <code>?</code> do?</p>
+      <ul>
+        <li><button class="quiz-opt">Makes the start codon optional</button><span class="why">Here, the ? comes straight after *, which changes how the repeat behaves.</span></li>
+        <li data-correct><button class="quiz-opt">Makes the codon repeat lazy, so the match ends at the FIRST stop codon</button><span class="why">Correct. Without it, the match runs to the last possible stop codon.</span></li>
+        <li><button class="quiz-opt">Matches a question mark in the DNA</button><span class="why">DNA has no question marks! In a regex, ? is a special symbol.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li>The <code>re</code> module finds patterns: <code>re.search</code> (first match), <code>re.findall</code> (all matches as strings), <code>re.finditer</code> (all matches with positions).</li>
+      <li>Write patterns as raw strings, <code>r"..."</code>. Add 1 to <code>match.start()</code> for biology positions.</li>
+      <li><code>[AG]</code> = one of these characters, <code>.</code> = any character, <code>{n}</code>, <code>+</code>, <code>*</code> = repeats, <code>|</code> = or, and <code>*?</code> = as few repeats as possible.</li>
+      <li>IUPAC codes (R, Y, N…) translate directly into character classes.</li>
+      <li>Regex matches don't overlap, and a simple ORF regex only reads one strand.</li>
+    </ul>
+  </div>
+  <div class="callout celebrate">
+    <span class="callout-title">🎉 Pattern pro!</span>
+    <p>You just found restriction sites, a polyadenylation signal and the HBB coding sequence with a few lines of code, and you diagnosed sickle cell disease the way labs did for decades.</p>
+  </div>
+</section>
+

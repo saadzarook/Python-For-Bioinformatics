@@ -1,0 +1,327 @@
+<!-- ======================================================================
+     LESSON 12 — GETTING DATA FROM NCBI
+     ====================================================================== -->
+<section class="lesson" id="ncbi" aria-labelledby="ncbi-title">
+  <h2 id="ncbi-title"><span class="lesson-kicker">Lesson 12</span>Getting data from NCBI</h2>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why this matters in bioinformatics</span>
+    <p>Clicking through a website to download one sequence is fine. Downloading 500 sequences that way is a long, error-prone afternoon, and nobody can repeat exactly what you did. With a few lines of code, you can search NCBI and download records automatically, and your script becomes a precise record of where your data came from. That's reproducibility again, this time for data collection.</p>
+  </div>
+
+  <h3>NCBI and accession numbers</h3>
+  <p>You met <a href="index.html#g-ncbi">NCBI</a> in Level 1: the US National Center for Biotechnology Information, which runs some of the world's biggest free biology databases, including Nucleotide (DNA and RNA sequences), Protein, Gene and PubMed (scientific papers). Every record has an <a class="term" href="#g-accession">accession number</a>, and its first letters tell you what kind of record it is:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Prefix</th><th>Kind of record</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td><code>NM_</code></td><td>mRNA, curated by NCBI (RefSeq)</td><td><code>NM_000518.5</code> (human HBB mRNA)</td></tr>
+        <tr><td><code>NP_</code></td><td>protein, curated (RefSeq)</td><td><code>NP_000509.1</code> (beta-globin protein)</td></tr>
+        <tr><td><code>NC_</code></td><td>a complete chromosome or genome</td><td><code>NC_000011.10</code> (human chromosome 11)</td></tr>
+        <tr><td><code>XM_</code> / <code>XP_</code></td><td>mRNA / protein <em>predicted</em> by computer, not yet curated</td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The number after the dot is the <strong>version</strong>. When NCBI corrects a sequence, the version goes up (NM_000518.4 became NM_000518.5 in 2018). Always record the full accession <em>with</em> its version, so you know exactly which sequence you used.</p>
+
+  <h3>E-utilities: NCBI's question-and-answer service</h3>
+  <p>NCBI's <a class="term" href="#g-eutils">E-utilities</a> are web addresses that answer questions from programs instead of people. They're an <a class="term" href="#g-api">API</a>: a way for programs to talk to each other. The two you'll use most:</p>
+  <ul>
+    <li><strong>esearch</strong>: "Which records match this search?" It gives back a list of record IDs.</li>
+    <li><strong>efetch</strong>: "Send me these records." It gives back the records themselves, for example as FASTA or GenBank text.</li>
+  </ul>
+  <p>Your question is written into the web address itself. Everything after the <code>?</code> is a list of <code>name=value</code> settings joined by <code>&amp;</code>. Spaces and brackets aren't allowed in web addresses, so they're encoded (a space becomes <code>+</code>, <code>[</code> becomes <code>%5B</code>). <code>urlencode()</code> from the standard library builds this for you from a dictionary:</p>
+
+<script type="text/x-python" class="py-example">
+from urllib.parse import urlencode
+
+BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+
+params = {
+    "db": "nuccore",                     # the Nucleotide database
+    "term": "HBB[gene] AND Homo sapiens[orgn] AND refseq_select[filter]",
+    "retmode": "json",                   # answer in JSON format
+    "tool": "pfb_course_level2",         # tell NCBI which program is asking
+}
+url = BASE_URL + "esearch.fcgi?" + urlencode(params)
+print(url)
+</script>
+
+  <p>The search term uses NCBI's search syntax: <code>[gene]</code>, <code>[orgn]</code> and <code>[filter]</code> say which field each word should match. <code>refseq_select</code> asks for NCBI's one recommended transcript per gene. You can paste that address into your browser's address bar and see the answer yourself!</p>
+
+  <h3>Being a polite user</h3>
+  <div class="callout habit">
+    <span class="callout-title">🧹 Good habit: NCBI's rules for scripts</span>
+    <ul>
+      <li><strong>No more than 3 requests per second.</strong> NCBI's servers are shared by the whole world. Scripts that hammer them get blocked. With a free <a class="term" href="#g-api-key">API key</a> you may make up to 10 per second.</li>
+      <li><strong>Say who you are.</strong> Send a <code>tool</code> name and an <code>email</code> address with your requests, so NCBI can contact you if your script causes problems instead of just blocking it.</li>
+      <li><strong>Use your own email, and never someone else's.</strong> And never put your email or API key in code that you share or publish: keep the key in a setting on your own computer (see below).</li>
+      <li><strong>Big downloads</strong> (more than about 100 requests) belong on weekends or between 9 pm and 5 am US Eastern time.</li>
+      <li><strong>Download once, save the file, and work from your copy.</strong> Don't download the same record again every time your script runs.</li>
+    </ul>
+  </div>
+
+  <h3>The Biopython way (on your own computer)</h3>
+  <p>On your own computer, Biopython's <code>Entrez</code> module talks to the E-utilities for you: it builds the addresses, sends your email and API key, and even waits between requests to respect the rate limit. Here's what it looks like. <strong>This box isn't runnable on this page</strong>, because Biopython's <code>Entrez</code> uses a networking tool that doesn't work inside a web browser:</p>
+
+  <div class="static-code">
+    <div class="static-code-bar"><strong>💻 Run this on your own computer</strong><span>not runnable here</span></div>
+<pre><code>import os
+from Bio import Entrez, SeqIO
+
+Entrez.email = "your.name@example.org"           # ← put YOUR OWN email address here
+Entrez.api_key = os.environ.get("NCBI_API_KEY")  # optional: read from a setting, never typed in the code
+
+# 1. Search: which records match?
+handle = Entrez.esearch(db="nucleotide",
+                        term="HBB[gene] AND Homo sapiens[orgn] AND refseq_select[filter]")
+result = Entrez.read(handle)
+handle.close()
+print("Found:", result["Count"], "record(s), IDs:", result["IdList"])
+
+# 2. Fetch: download a record as FASTA, and save it to a file
+handle = Entrez.efetch(db="nucleotide", id="NM_000518.5", rettype="fasta", retmode="text")
+text = handle.read()
+handle.close()
+with open("NM_000518.5.fasta", "w") as f:
+    f.write(text)
+
+record = SeqIO.read("NM_000518.5.fasta", "fasta")
+print(record.id, len(record.seq), "bases")</code></pre>
+  </div>
+
+  <p><code>os.environ.get("NCBI_API_KEY")</code> reads an "environment variable", a setting stored on your computer rather than in your code. That way you can share your script without sharing your key.</p>
+
+  <h3>The browser way (runnable here)</h3>
+  <p>Inside a web browser, Python has to ask the <em>browser</em> to download things. Pyodide gives us <code>pyfetch()</code> for that. Browsers also only let a page fetch data from another website if that website allows it; NCBI's E-utilities do. We've put a small helper, <code>fetch_text()</code>, in this page's folder as <code>ncbi_helper.py</code>. It waits politely between requests, and if NCBI can't be reached (no internet, a network that blocks it, or too many requests), it falls back to a <strong>saved copy</strong> of NCBI's answer that comes with the page:</p>
+  <p class="file-view-title">ncbi_helper.py</p>
+  <pre class="file-view" data-show-file="ncbi_helper.py"></pre>
+  <p>One new word: <code>await</code>. Downloading takes time, and a web page must never freeze while it waits. <code>await</code> means "pause this code here until the answer arrives, and let the page carry on meanwhile". You only need it in the browser version; the Biopython code above waits without it.</p>
+
+<script type="text/x-python" class="py-example">
+import json
+from urllib.parse import urlencode
+from ncbi_helper import fetch_text, BASE_URL, TOOL_NAME
+
+params = {
+    "db": "nuccore",
+    "term": "HBB[gene] AND Homo sapiens[orgn] AND refseq_select[filter]",
+    "retmode": "json",
+    "tool": TOOL_NAME,
+}
+url = BASE_URL + "esearch.fcgi?" + urlencode(params)
+
+text = await fetch_text(url, "esearch_hbb.json")      # live from NCBI, or the saved copy
+result = json.loads(text)                             # JSON text -> Python dictionaries and lists
+
+print("Records found:", result["esearchresult"]["count"])
+print("Their IDs:    ", result["esearchresult"]["idlist"])
+</script>
+
+  <p>The answer comes as <a class="term" href="#g-json">JSON</a>, a text format made of nested dictionaries and lists. <code>json.loads()</code> turns it into real Python dictionaries and lists. The ID is a plain number, NCBI's internal "UID" for the record. <code>efetch</code> accepts either that number or an accession; accessions are easier for humans, so let's fetch by accession:</p>
+
+<script type="text/x-python" class="py-example">
+from urllib.parse import urlencode
+from Bio import SeqIO
+from ncbi_helper import fetch_text, BASE_URL, TOOL_NAME
+
+params = {"db": "nuccore", "id": "NM_000518.5", "rettype": "fasta", "retmode": "text", "tool": TOOL_NAME}
+url = BASE_URL + "efetch.fcgi?" + urlencode(params)
+
+text = await fetch_text(url, "efetch_hbb.fasta")
+
+with open("NM_000518.5_downloaded.fasta", "w") as f:      # save it: download once, use many times
+    f.write(text)
+
+record = SeqIO.read("NM_000518.5_downloaded.fasta", "fasta")
+print(record.description)
+print("Length:", len(record.seq), "bases")
+print("Starts:", record.seq[:60])
+</script>
+
+  <p>628 bases: the complete HBB mRNA, the same sequence as <code>hbb.gb</code> in Lesson 10, but in FASTA format. If you saw "🌐 Live answer from NCBI", your code just talked to a database across the world. If you saw "📦", the page used its saved copy, and everything else worked exactly the same. 🎉</p>
+  <div class="callout tip">
+    <span class="callout-title">💡 Saved copies are a good idea anyway</span>
+    <p>Databases change: records get new versions, search results grow. For a reproducible analysis, save what you downloaded (with the date) and run your analysis on that saved copy. That's exactly what the fallback files on this page are: <code>esearch_hbb.json</code> and <code>efetch_hbb.fasta</code>, saved from NCBI on 3 October 2026. The exercises below use them, so they work even offline.</p>
+  </div>
+
+  <h3>Exercises</h3>
+  <div class="exercise" id="ex-12-1">
+    <h4><span class="exercise-tag">Exercise 12.1</span><span class="exercise-kind">✍️ Write it</span>Build an efetch address</h4>
+    <p>Complete <code>efetch_url(accession, rettype="fasta")</code>. It should return the efetch address for one record from the <code>nuccore</code> database, with the settings <code>db</code>, <code>id</code>, <code>rettype</code>, <code>retmode</code> (always <code>"text"</code>) and <code>tool</code> (use <code>TOOL_NAME</code>). Use <code>urlencode()</code>.</p>
+<script type="text/x-python" class="py-starter">
+from urllib.parse import urlencode
+
+BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+TOOL_NAME = "pfb_course_level2"
+
+
+def efetch_url(accession, rettype="fasta"):
+    """Return the E-utilities efetch address for one nuccore record."""
+    return BASE_URL
+
+
+print(efetch_url("NM_000207.3"))
+print(efetch_url("NM_000207.3", rettype="gb"))
+</script>
+    <div class="hints">
+      <p>Make a dictionary of settings: <code>{"db": "nuccore", "id": accession, "rettype": rettype, "retmode": "text", "tool": TOOL_NAME}</code>.</p>
+      <p>Then <code>return BASE_URL + "efetch.fcgi?" + urlencode(params)</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from urllib.parse import urlencode
+
+BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+TOOL_NAME = "pfb_course_level2"
+
+
+def efetch_url(accession, rettype="fasta"):
+    """Return the E-utilities efetch address for one nuccore record."""
+    params = {"db": "nuccore", "id": accession, "rettype": rettype, "retmode": "text", "tool": TOOL_NAME}
+    return BASE_URL + "efetch.fcgi?" + urlencode(params)
+
+
+print(efetch_url("NM_000207.3"))
+print(efetch_url("NM_000207.3", rettype="gb"))
+</script>
+<script type="text/x-python" class="py-tests">
+from urllib.parse import urlsplit as _split, parse_qs as _qs
+for _acc, _type in [("NM_000207.3", "fasta"), ("NM_002046.7", "gb"), ("NC_000011.10", "fasta")]:
+    _url = efetch_url(_acc, rettype=_type) if _type != "fasta" else efetch_url(_acc)
+    _parts = _split(_url)
+    assert _parts.scheme == "https" and _parts.netloc == "eutils.ncbi.nlm.nih.gov", f"The address should start with https://eutils.ncbi.nlm.nih.gov/ but is {_url!r}."
+    assert _parts.path == "/entrez/eutils/efetch.fcgi", f"The address should use efetch.fcgi: BASE_URL + \"efetch.fcgi?\" + ... Yours: {_url!r}"
+    _got = {k: v[0] for k, v in _qs(_parts.query).items()}
+    _want = {"db": "nuccore", "id": _acc, "rettype": _type, "retmode": "text", "tool": "pfb_course_level2"}
+    assert _got == _want, f"For {_acc} with rettype={_type!r}, the settings should be {_want}, but yours are {_got}."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-12-2">
+    <h4><span class="exercise-tag">Exercise 12.2</span><span class="exercise-kind">✍️ Write it</span>Read a saved esearch answer</h4>
+    <p>The file <code>esearch_hbb.json</code> is NCBI's real answer to the HBB search above, saved on 3 October 2026. Read it with the <code>json</code> module, then store the number of records found as an <strong>integer</strong> in <code>count</code>, and the first ID in <code>first_id</code>.</p>
+<script type="text/x-python" class="py-starter">
+import json
+
+with open("esearch_hbb.json") as f:
+    result = json.loads(f.read())
+
+print(result)          # look at the structure first!
+
+count = 0
+first_id = ""
+
+print("Count:", count, " First ID:", first_id)
+</script>
+    <div class="hints">
+      <p>Everything useful is inside <code>result["esearchresult"]</code>, which is itself a dictionary.</p>
+      <p>The count is <code>result["esearchresult"]["count"]</code>, but it's text, so wrap it in <code>int()</code>. The IDs are the list <code>result["esearchresult"]["idlist"]</code>; take item <code>[0]</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import json
+
+with open("esearch_hbb.json") as f:
+    result = json.loads(f.read())
+
+print(result)          # look at the structure first!
+
+count = int(result["esearchresult"]["count"])
+first_id = result["esearchresult"]["idlist"][0]
+
+print("Count:", count, " First ID:", first_id)
+</script>
+<script type="text/x-python" class="py-tests">
+assert count != "1", "count is the text \"1\". Convert it to a number with int(...)."
+assert isinstance(count, int), "count should be an integer: use int(...)."
+assert count == 1, f"The saved search found 1 record, but count is {count}."
+assert first_id == "1401724401", f"The first ID should be '1401724401', but first_id is {first_id!r}."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-12-3">
+    <h4><span class="exercise-tag challenge">🌶️ Challenge 12.3</span><span class="exercise-kind">✍️ Write it</span>From download to protein</h4>
+    <p>Read the saved efetch answer, <code>efetch_hbb.fasta</code>, with <code>SeqIO.read()</code>. Find where the coding sequence starts: the first <code>ATG</code>, as a <strong>biology position</strong> (from 1), stored in <code>cds_start</code>. Then translate from there up to the first stop codon, and store the protein's length in <code>protein_length</code>. Does it match the GenBank annotation from Lesson 10?</p>
+<script type="text/x-python" class="py-starter">
+from Bio import SeqIO
+
+record = SeqIO.read("efetch_hbb.fasta", "fasta")
+
+cds_start = 0
+protein_length = 0
+
+print("CDS starts at base", cds_start)
+print("Protein length:", protein_length)
+</script>
+    <div class="hints">
+      <p>A Seq has <code>.find()</code> just like a string: <code>record.seq.find("ATG")</code> gives the Python index of the first ATG. Add 1 for biology numbering.</p>
+      <p>Translate from that index: <code>record.seq[index:]</code>. Trim it to whole codons first (<code>piece[:len(piece) // 3 * 3]</code>) and use <code>.translate(to_stop=True)</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from Bio import SeqIO
+
+record = SeqIO.read("efetch_hbb.fasta", "fasta")
+
+start_index = record.seq.find("ATG")
+cds_start = start_index + 1
+
+piece = record.seq[start_index:]
+piece = piece[:len(piece) // 3 * 3]
+protein = piece.translate(to_stop=True)
+protein_length = len(protein)
+
+print("CDS starts at base", cds_start)
+print("Protein length:", protein_length)
+print(protein)
+</script>
+<script type="text/x-python" class="py-tests">
+assert cds_start != 50, "50 is the Python index. Add 1 to get the biology position."
+assert cds_start == 51, f"The first ATG is at base 51 (the GenBank CDS is 51..494), but cds_start is {cds_start}."
+assert protein_length != 148, "148 includes the stop codon. Use translate(to_stop=True)."
+assert protein_length == 147, f"The protein should have 147 amino acids, but protein_length is {protein_length}."
+</script>
+  </div>
+
+  <div class="quiz">
+    <h3>Quick quiz</h3>
+    <div class="quiz-q">
+      <p>1. What kind of record is <code>NP_000509.1</code>?</p>
+      <ul>
+        <li><button class="quiz-opt">An mRNA</button><span class="why">mRNA records start with NM_. NP_ means protein.</span></li>
+        <li data-correct><button class="quiz-opt">A curated protein, version 1</button><span class="why">Right: NP_ = RefSeq protein, and .1 is the version.</span></li>
+        <li><button class="quiz-opt">A predicted protein</button><span class="why">Predicted proteins start with XP_.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. What's the difference between esearch and efetch?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt">esearch finds the IDs of matching records; efetch downloads records</button><span class="why">Exactly. A typical script searches first, then fetches what it found.</span></li>
+        <li><button class="quiz-opt">esearch is for DNA, efetch is for proteins</button><span class="why">Both work with any database; you choose it with db=.</span></li>
+        <li><button class="quiz-opt">They're the same; efetch is just newer</button><span class="why">They do different jobs: finding versus downloading.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. Your script will download 200 records from NCBI, without an API key. What should it do?</p>
+      <ul>
+        <li><button class="quiz-opt">Send all 200 requests at once to finish quickly</button><span class="why">That breaks NCBI's limit of 3 requests per second, and your access may be blocked.</span></li>
+        <li data-correct><button class="quiz-opt">Wait between requests (max 3 per second), send its tool name and your email, and save the results</button><span class="why">Yes: polite, identifiable and reproducible. Biopython's Entrez does the waiting for you.</span></li>
+        <li><button class="quiz-opt">Use a colleague's email address so the requests aren't traced to you</button><span class="why">Never use someone else's email. NCBI uses it to contact the person responsible for the script.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li>Accession prefixes tell you the record type (NM_ mRNA, NP_ protein, NC_ chromosome); always record the version.</li>
+      <li>E-utilities answer questions sent as web addresses: esearch finds IDs, efetch downloads records. <code>urlencode()</code> builds the address.</li>
+      <li>Be polite: at most 3 requests per second (10 with an API key), send a tool name and your own email, and never share your key.</li>
+      <li>On your own computer, use <code>Bio.Entrez</code>. In the browser, this page uses <code>pyfetch</code> with <code>await</code>, with a saved copy as a fallback.</li>
+      <li>Save what you download, and analyse your saved copy.</li>
+    </ul>
+  </div>
+  <div class="callout celebrate">
+    <span class="callout-title">🎉 Connected!</span>
+    <p>You just searched a public database and downloaded a real gene from code, the way large studies collect thousands of sequences automatically. Your scripts are no longer limited to the files on your computer.</p>
+  </div>
+</section>
+

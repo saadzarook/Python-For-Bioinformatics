@@ -1,0 +1,164 @@
+LOCUS       NM_001201391             639 bp    mRNA    linear   ROD 13-JAN-2023
+DEFINITION  Mus musculus hemoglobin, beta adult s chain (Hbb-bs), mRNA.
+ACCESSION   NM_001201391 XM_003084713 XM_003084715
+VERSION     NM_001201391.1
+KEYWORDS    RefSeq; RefSeq Select.
+SOURCE      Mus musculus (house mouse)
+  ORGANISM  Mus musculus
+            Eukaryota; Metazoa; Chordata; Craniata; Vertebrata; Euteleostomi;
+            Mammalia; Eutheria; Euarchontoglires; Glires; Rodentia; Myomorpha;
+            Muroidea; Muridae; Murinae; Mus; Mus.
+REFERENCE   1  (bases 1 to 639)
+  AUTHORS   Brown FC, Scott N, Rank G, Collinge JE, Vadolas J, Vickaryous N,
+            Whitelaw N, Whitelaw E, Kile BT, Jane SM and Curtis DJ.
+  TITLE     ENU mutagenesis identifies the first mouse mutants reproducing
+            human beta-thalassemia at the genomic level
+  JOURNAL   Blood Cells Mol Dis 50 (2), 86-92 (2013)
+   PUBMED   23040355
+  REMARK    GeneRIF: ENU mutagenesis generated mouse lines with dominant
+            beta-thalassemia mutations resembling those in the human disease: a
+            nonsense mutation at codon 40 in exon 2 and a mutation at the
+            polyadenylation signal of the beta-major gene.
+REFERENCE   2  (bases 1 to 639)
+  AUTHORS   Runck AM, Moriyama H and Storz JF.
+  TITLE     Evolution of duplicated beta-globin genes and the structural basis
+            of hemoglobin isoform differentiation in Mus
+  JOURNAL   Mol Biol Evol 26 (11), 2521-2532 (2009)
+   PUBMED   19675095
+REFERENCE   3  (bases 1 to 639)
+  AUTHORS   Hug BA, Wesselschmidt RL, Fiering S, Bender MA, Epner E, Groudine M
+            and Ley TJ.
+  TITLE     Analysis of mice containing a targeted deletion of beta-globin
+            locus control region 5' hypersensitive site 3
+  JOURNAL   Mol Cell Biol 16 (6), 2906-2912 (1996)
+   PUBMED   8649401
+REFERENCE   4  (bases 1 to 639)
+  AUTHORS   Fiering S, Epner E, Robinson K, Zhuang Y, Telling A, Hu M, Martin
+            DI, Enver T, Ley TJ and Groudine M.
+  TITLE     Targeted deletion of 5'HS2 of the murine beta-globin LCR reveals
+            that it is not essential for proper regulation of the beta-globin
+            locus
+  JOURNAL   Genes Dev 9 (18), 2203-2213 (1995)
+   PUBMED   7557375
+REFERENCE   5  (bases 1 to 639)
+  AUTHORS   Shehee WR, Loeb DD, Adey NB, Burton FH, Casavant NC, Cole P, Davies
+            CJ, McGraw RA, Schichman SA, Severynse DM et al.
+  TITLE     Nucleotide sequence of the BALB/c mouse beta-globin complex
+  JOURNAL   J Mol Biol 205 (1), 41-62 (1989)
+   PUBMED   2926808
+REFERENCE   6  (bases 1 to 639)
+  AUTHORS   Weaver,S., Comer,M.B., Jahn,C.L., Hutchison,C.A. 3rd and
+            Edgell,M.H.
+  TITLE     The adult beta-globin genes of the 'single' type mouse C57BL
+  JOURNAL   Cell 24 (2), 403-411 (1981)
+   PUBMED   7237554
+COMMENT     VALIDATED REFSEQ: This record has undergone validation or
+            preliminary review. The reference sequence was derived from
+            AC131116.3.
+            
+            On or before Jan 17, 2011 this sequence version replaced
+            XM_003084713.1, XM_003084715.1.
+            
+            Summary: This gene encodes a beta polypeptide chain found in adult
+            hemoglobin, which consists of a tetramer of two alpha chains and
+            two beta chains, and which functions in the transport of oxygen to
+            various peripheral tissues. This gene is one of a cluster of
+            beta-hemoglobin genes that are distally regulated by a locus
+            control region, and which are organized along the chromosome in the
+            order of their developmental expression. In mouse, two major
+            strain-specific haplotypes of the beta-globin gene cluster are
+            found - a 'single' haplotype found in C57BL/-type strains, which
+            includes two highly similar adult beta-globin genes, beta s and
+            beta t, and a 'diffuse' haplotype found in strains such as BALB/c
+            and 129Sv, which includes two somewhat diverse adult beta-globin
+            genes, beta-major and beta-minor. This gene represents the beta s
+            adult gene found in the 'single' haplotype. Primary chromosome 7 of
+            the mouse reference genome assembly, which is derived from C57BL/6
+            strain mice, represents the 'single' haplotype, while the 'diffuse'
+            haplotype is represented in the reference genome collection by the
+            BALB/c strain alternate contig, NT_095534.1. [provided by RefSeq,
+            May 2013].
+            
+            CCDS Note: This gene represents the first of two adult-expressed
+            beta-globin genes in the 'single' haplotype of the beta-globin
+            cluster (PMID:7237554). The 'single' haplotype is found in
+            C57BL/-type strains and includes two highly similar adult
+            beta-globin genes, beta s and beta t, while the 'diffuse' haplotype
+            is found in strains such as BALB/c and 129Sv, and includes two
+            somewhat diverse adult beta-globin genes, beta-major and
+            beta-minor. This CCDS is based on primary chromosome 7 of the mouse
+            reference genome assembly, which represents the 'single' haplotype.
+            
+            ##Evidence-Data-START##
+            Transcript exon combination :: AK027903.1, AK011069.1 [ECO:0000332]
+            RNAseq introns              :: single sample supports all introns
+                                           SAMN00849375, SAMN00849378
+                                           [ECO:0000348]
+            ##Evidence-Data-END##
+            
+            ##RefSeq-Attributes-START##
+            RefSeq Select criteria :: based on single protein-coding transcript
+            ##RefSeq-Attributes-END##
+            COMPLETENESS: complete on the 3' end.
+PRIMARY     REFSEQ_SPAN         PRIMARY_IDENTIFIER PRIMARY_SPAN        COMP
+            1-145               AC131116.3         135939-136083       c
+            146-368             AC131116.3         135603-135825       c
+            369-639             AC131116.3         134678-134948       c
+FEATURES             Location/Qualifiers
+     source          1..639
+                     /organism="Mus musculus"
+                     /mol_type="mRNA"
+                     /strain="C57BL/6"
+                     /db_xref="taxon:10090"
+                     /chromosome="7"
+                     /map="7"
+     gene            1..639
+                     /gene="Hbb-bs"
+                     /gene_synonym="Beta-s; Hbbt1; Hbbt2"
+                     /note="hemoglobin, beta adult s chain"
+                     /db_xref="GeneID:100503605"
+                     /db_xref="MGI:MGI:5474852"
+     exon            1..145
+                     /gene="Hbb-bs"
+                     /gene_synonym="Beta-s; Hbbt1; Hbbt2"
+                     /inference="alignment:Splign:2.1.0"
+     misc_feature    27..29
+                     /gene="Hbb-bs"
+                     /gene_synonym="Beta-s; Hbbt1; Hbbt2"
+                     /note="upstream in-frame stop codon"
+     CDS             54..497
+                     /gene="Hbb-bs"
+                     /gene_synonym="Beta-s; Hbbt1; Hbbt2"
+                     /note="beta-single; beta-globin; hemoglobin subunit
+                     beta-1-like; beta s"
+                     /codon_start=1
+                     /product="hemoglobin, beta adult s chain"
+                     /protein_id="NP_001188320.1"
+                     /db_xref="CCDS:CCDS52339.1"
+                     /db_xref="GeneID:100503605"
+                     /db_xref="MGI:MGI:5474852"
+                     /translation="MVHLTDAEKAAVSGLWGKVNADEVGGEALGRLLVVYPWTQRYFD
+                     SFGDLSSASAIMGNAKVKAHGKKVITAFNDGLNHLDSLKGTFASLSELHCDKLHVDPE
+                     NFRLLGNMIVIVLGHHLGKDFTPAAQAAFQKVVAGVAAALAHKYH"
+     exon            146..368
+                     /gene="Hbb-bs"
+                     /gene_synonym="Beta-s; Hbbt1; Hbbt2"
+                     /inference="alignment:Splign:2.1.0"
+     exon            369..639
+                     /gene="Hbb-bs"
+                     /gene_synonym="Beta-s; Hbbt1; Hbbt2"
+                     /inference="alignment:Splign:2.1.0"
+ORIGIN      
+        1 cacatttgct tctgacatag ttgtgttgac tcacaacccc agaaacagac atcatggtgc
+       61 acctgactga tgctgagaag gctgctgtct ctggcctgtg gggaaaggtg aacgccgatg
+      121 aagttggtgg tgaggccctg ggcaggctgc tggttgtcta cccttggacc cagcggtact
+      181 ttgatagctt tggagaccta tcctctgcct ctgctatcat gggtaatgcc aaagtgaagg
+      241 cccatggcaa gaaagtgata actgccttta acgatggcct gaatcacttg gacagcctca
+      301 agggcacctt tgccagcctc agtgagctcc actgtgacaa gctgcatgtg gatcctgaga
+      361 acttcaggct cctgggcaat atgatcgtga ttgtgctggg ccaccacctg ggcaaggatt
+      421 tcacccccgc tgcacaggct gccttccaga aggtggtggc tggagtggcc gctgccctgg
+      481 ctcacaagta ccactaaacc ccctttcctg ctcttgcctg tgaacaatgg ttaattgttc
+      541 ccaagagagc atctgtcagt tgttggcaaa atgataaaga catttgaaaa tctgtcttct
+      601 gacaaataaa aagcatttat ttcactgcaa tgatgtttt
+//
+

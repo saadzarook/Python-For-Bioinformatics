@@ -1,0 +1,49 @@
+/* ==========================================================================
+   8. LEVEL 2 ADDITIONS
+   --------------------------------------------------------------------------
+   New components used from Level 2 onwards. They only use the theme tokens
+   above plus the few extra tokens defined here, so they can move into the
+   shared stylesheet unchanged.
+   ========================================================================== */
+:root {
+  --habit: #1d5fa8; --habit-soft: #e6eff9;
+  --fact: #93306b;  --fact-soft: #faebf3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --habit: #8cc4ff; --habit-soft: #172a40;
+    --fact: #f2a6d2;  --fact-soft: #3a1c2e;
+  }
+}
+:root[data-theme="dark"] {
+  --habit: #8cc4ff; --habit-soft: #172a40;
+  --fact: #f2a6d2;  --fact-soft: #3a1c2e;
+}
+
+/* "Good habit" and "Did you know?" boxes */
+.callout.habit { border-left-color: var(--habit); background: var(--habit-soft); }
+.callout.habit .callout-title { color: var(--habit); }
+.callout.fact { border-left-color: var(--fact); background: var(--fact-soft); }
+.callout.fact .callout-title { color: var(--fact); }
+.callout.celebrate { border-left-color: var(--accent); background: linear-gradient(135deg, var(--accent-soft), var(--surface)); }
+
+/* Exercise type labels and the optional challenge tag */
+.exercise-kind { display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 8px; margin-right: 6px; vertical-align: middle; white-space: nowrap; }
+.exercise-tag.challenge { color: var(--fact); background: var(--fact-soft); }
+
+/* Code that is shown but NOT runnable here ("Run this on your own computer") */
+.static-code { border: 1px dashed var(--border); border-radius: var(--radius); background: var(--surface-2); margin: 1em 0 1.3em; overflow: hidden; }
+.static-code-bar { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; padding: 6px 12px; border-bottom: 1px dashed var(--border); font-size: .8rem; color: var(--muted); }
+.static-code-bar strong { color: var(--text); letter-spacing: .04em; text-transform: uppercase; font-size: .78rem; }
+.static-code pre { margin: 0; padding: 12px 14px; font-size: .88rem; line-height: 1.55; overflow-x: auto; }
+
+/* Plots drawn by matplotlib inside a code box's output */
+.output img.plot { display: block; max-width: 100%; height: auto; margin: 8px 0 4px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+
+/* Small helpers */
+.table-wrap table code { white-space: nowrap; }
+.levels a .badge { margin-left: auto; }
+.lesson-links { display: flex; flex-wrap: wrap; gap: 8px; margin: .5em 0 1em; padding: 0; list-style: none; }
+.lesson-links li { margin: 0; }
+.lesson-links a { display: inline-block; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font-size: .9rem; text-decoration: none; }
+.lesson-links a:hover { border-color: var(--accent); }

@@ -1,0 +1,429 @@
+<!-- ======================================================================
+     LESSON 3 — MODULES AND IMPORTS
+     ====================================================================== -->
+<section class="lesson" id="modules" aria-labelledby="modules-title">
+  <h2 id="modules-title"><span class="lesson-kicker">Lesson 3</span>Modules and imports</h2>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why this matters in bioinformatics</span>
+    <p>Every function you don't have to write is a function you don't have to test and debug. Python comes with hundreds of ready-made <a class="term" href="#g-module">modules</a> for maths, statistics, counting, randomness, files and the internet. Knowing what's already there saves hours, and the built-in tools are well tested. In this lesson you'll use them to count <a class="term" href="#g-kmer">k-mers</a>, the short "words" that genome assemblers and many modern tools are built on.</p>
+  </div>
+
+  <h3>The standard library</h3>
+  <p>In Level 1 you imported <code>math</code> and Biopython. <code>math</code> is part of Python's <a class="term" href="#g-standard-library">standard library</a>: modules that come with every Python installation, so there's nothing to download. (Biopython, pandas and matplotlib are <em>extra</em> libraries that have to be installed.) There are three common ways to import:</p>
+
+<script type="text/x-python" class="py-example">
+import math                          # 1. the whole module: use it as math.log2(...)
+from statistics import mean, median  # 2. just some names: use them directly, mean(...)
+import statistics as stats           # 3. the module under a short nickname: stats.stdev(...)
+
+print(math.log2(8))
+print(mean([148, 150, 151]))
+print(stats.stdev([148, 150, 151]))
+</script>
+
+  <p>Style 3, a short nickname, is very common for big libraries. You'll see <code>import pandas as pd</code> in Lesson 7. Whichever style you choose, put all your imports at the top of your script, so readers can see at a glance what the code depends on.</p>
+
+  <h3><code>math</code>: logarithms and rounding up</h3>
+  <p>Biology is full of logarithms. Gene expression changes are reported as <strong>log2 fold changes</strong> (doubling = +1, halving = −1), and sequencing quality (Lesson 5) uses log10. <code>math.ceil()</code> rounds <em>up</em>, which is handy for lab planning:</p>
+
+<script type="text/x-python" class="py-example">
+import math
+
+# Expression went from 31.5 to 248.9: how many doublings is that?
+print(f"log2 fold change: {math.log2(248.9 / 31.5):.2f}")
+print(f"halving gives:    {math.log2(0.5)}")
+
+# A sequencing error probability of 1 in 1000, on a log10 scale
+print(f"log10(0.001) = {math.log10(0.001)}")
+
+# 250 samples, 96 wells per plate: how many plates do we need?
+SAMPLES = 250
+WELLS_PER_PLATE = 96
+print("Plates needed:", math.ceil(SAMPLES / WELLS_PER_PLATE))
+</script>
+
+  <h3><code>statistics</code>: averages that behave</h3>
+  <p>The <code>statistics</code> module gives you the mean, median, standard deviation and more. Here are some read lengths from a sequencing run. One read is much shorter than the others, an <em>outlier</em>:</p>
+
+<script type="text/x-python" class="py-example">
+from statistics import mean, median, stdev
+
+read_lengths = [148, 150, 151, 150, 149, 35]
+
+print(f"Mean:   {mean(read_lengths):.1f}")
+print(f"Median: {median(read_lengths):.1f}")
+print(f"Standard deviation: {stdev(read_lengths):.1f}")
+</script>
+
+  <p>The single short read drags the mean down to 130.5, while the median (the middle value) stays at 149.5, close to a typical read. That's why biologists often report medians for things like read lengths and expression levels.</p>
+
+  <h3><code>collections.Counter</code>: counting made easy</h3>
+  <p>Counting things is everywhere in bioinformatics, and you've written the "if seen before add 1, else start at 1" pattern a few times now. <code>Counter</code> does it for you. Give it a string or a list, and it counts every item:</p>
+
+<script type="text/x-python" class="py-example">
+from collections import Counter
+
+dna = "ATGGTGCATCTGACTCCTGAGGAGAAGTCT"
+base_counts = Counter(dna)
+print(base_counts)
+print("G:", base_counts["G"])
+print("N:", base_counts["N"])          # missing items count as 0, no KeyError!
+
+codons = [dna[i:i+3] for i in range(0, len(dna), 3)]
+print(Counter(codons).most_common(2))  # the 2 most common codons
+</script>
+
+  <p><code>.most_common(2)</code> gives the top two as <code>(item, count)</code> pairs. Pairs written in round brackets are called <a class="term" href="#g-tuple">tuples</a>: like small lists that can't be changed. You can loop over them just like <code>.items()</code>: <code>for codon, count in ...:</code>.</p>
+
+  <h3>🧪 Project: counting k-mers</h3>
+  <p>A <a class="term" href="#g-kmer">k-mer</a> is a piece of sequence <em>k</em> bases long. To list all k-mers, slide a window of width <em>k</em> along the sequence one base at a time. Unlike codons, k-mers <strong>overlap</strong>:</p>
+  <div class="seq-figure">
+<pre aria-label="Sliding a window of 3 bases along GATTACA">
+GATTACA      all 3-mers, sliding one base at a time:
+GAT          position 1
+ ATT         position 2
+  TTA        position 3
+   TAC       position 4
+    ACA      position 5      →  7 bases − 3 + 1 = 5 k-mers
+</pre>
+  </div>
+  <p>A sequence of length <em>L</em> contains <em>L</em> − <em>k</em> + 1 k-mers. Counting them is one line with <code>Counter</code> and a list comprehension:</p>
+
+<script type="text/x-python" class="py-example">
+from collections import Counter
+
+def count_kmers(seq, k):
+    """Return a Counter of all overlapping k-mers in seq."""
+    return Counter([seq[i:i+k] for i in range(len(seq) - k + 1)])
+
+
+hbb = "ATGGTGCATCTGACTCCTGAGGAGAAGTCT"   # HBB, first 30 bases (NM_000518.5)
+kmers = count_kmers(hbb, 3)
+print("Total 3-mers:   ", sum(kmers.values()))   # sum() adds up a list of numbers
+print("Different 3-mers:", len(kmers))
+for kmer, count in kmers.most_common(3):
+    print(kmer, count)
+</script>
+
+  <div class="callout fact">
+    <span class="callout-title">🤓 Did you know?</span>
+    <p>k-mers power a lot of modern bioinformatics. Genome assemblers stitch reads together through shared k-mers. Tools such as Kraken identify which species a read came from by looking up its k-mers, and k-mer counts from raw reads can even estimate a genome's size before it has been assembled.</p>
+  </div>
+
+  <h3><code>random</code>: simulations you can repeat</h3>
+  <p>Random numbers are useful for simulating data, for example to test a pipeline or to ask "would I see this pattern by chance?". <code>random.choice()</code> picks a random item, and <code>random.random()</code> gives a decimal between 0 and 1. One new trick here: <code>"".join(list_of_strings)</code> glues a list of strings into one string.</p>
+
+<script type="text/x-python" class="py-example">
+import random
+
+RANDOM_SEED = 42
+random.seed(RANDOM_SEED)     # makes the "random" results the same every time
+
+bases = [random.choice("ACGT") for _ in range(30)]
+random_dna = "".join(bases)
+print(random_dna)
+
+# Simulate sequencing errors: each base has a 10% chance of becoming N
+ERROR_RATE = 0.10
+with_errors = ""
+for base in random_dna:
+    if random.random() < ERROR_RATE:
+        with_errors += "N"
+    else:
+        with_errors += base
+print(with_errors)
+</script>
+
+  <p>Run it a few times: you get the same "random" sequence every time, because of <code>random.seed(42)</code>. Now delete the seed line and run again: the result changes on every run. (The <code>_</code> in <code>for _ in range(30)</code> is a name that means "I don't need this value, I just want to repeat 30 times".)</p>
+  <div class="callout habit">
+    <span class="callout-title">🧹 Good habit: set a random seed</span>
+    <p>Computer "randomness" comes from a starting number, the <a class="term" href="#g-seed">seed</a>. Setting it yourself makes your analysis <a class="term" href="#g-reproducible">reproducible</a>: anyone who runs your code gets exactly the same numbers you did, including you next year. Write the seed as a named constant at the top of the script, and mention it in your methods.</p>
+  </div>
+
+  <h3>Writing your own module</h3>
+  <p>Here's the nice part: <strong>any <code>.py</code> file is a module</strong>. If you save your best functions in a file called <code>seqtools.py</code>, every script in the same folder can <code>import seqtools</code>. This page already has one in its folder, with the Level 1 toolkit inside:</p>
+  <p class="file-view-title">seqtools.py</p>
+  <pre class="file-view" data-show-file="seqtools.py"></pre>
+
+<script type="text/x-python" class="py-example">
+import seqtools
+from seqtools import gc_content
+
+hbb = "ATGGTGCATCTGACTCCTGAGGAGAAGTCT"
+print(seqtools.translate(hbb))
+print(seqtools.reverse_complement(hbb))
+print(f"{gc_content(hbb):.1f}% GC")
+</script>
+
+  <p>Now you write <code>translate()</code> once, test it once, and every analysis script can share it. If you fix a bug in <code>seqtools.py</code>, every script that imports it gets the fix. Libraries such as Biopython are just very big, very well-tested collections of modules like this one.</p>
+
+  <div class="callout tip">
+    <span class="callout-title">💻 Running Python on your own computer</span>
+    <p>When you're ready to leave the browser (there's no rush!):</p>
+    <ol>
+      <li>Install Python from <a href="https://www.python.org/downloads/">python.org</a> (on Windows, tick "Add Python to PATH").</li>
+      <li>Open a <a href="index.html#g-terminal">terminal</a> and install the extra libraries this level uses: <code>pip install biopython pandas matplotlib</code></li>
+      <li>Save your code in a file such as <code>analysis.py</code>, and run it with <code>python analysis.py</code> from the folder it's in. Keep <code>seqtools.py</code> and your data files in that same folder.</li>
+    </ol>
+    <p>Many bioinformaticians also use Jupyter notebooks, which mix code boxes and notes much like this page does.</p>
+  </div>
+
+  <div class="callout habit">
+    <span class="callout-title">🧹 Good habit: record your versions</span>
+    <p>Different versions of a library can give slightly different results. Print or save the versions you used, alongside your results. On your own computer, <code>pip freeze &gt; requirements.txt</code> saves the exact versions of everything you've installed.</p>
+  </div>
+
+<script type="text/x-python" class="py-example">
+import sys
+import platform
+
+print("Python version:", platform.python_version())
+print("Running on:", sys.platform)   # "emscripten" means "inside a web browser"
+</script>
+
+  <h3>Exercises</h3>
+  <div class="exercise" id="ex-3-1">
+    <h4><span class="exercise-tag">Exercise 3.1</span><span class="exercise-kind">✍️ Write it</span>Count k-mers</h4>
+    <p>Complete <code>count_kmers(seq, k)</code> so it returns a <code>Counter</code> of all overlapping k-mers of length <code>k</code> in <code>seq</code>.</p>
+<script type="text/x-python" class="py-starter">
+from collections import Counter
+
+
+def count_kmers(seq, k):
+    """Return a Counter of all overlapping k-mers of length k in seq."""
+    kmers = []   # build the list of k-mers here
+    return Counter(kmers)
+
+
+print(count_kmers("GATTACA", 2))   # GA, AT, TT, TA, AC, CA: 6 two-mers
+</script>
+    <div class="hints">
+      <p>The k-mer starting at index <code>i</code> is <code>seq[i:i+k]</code>.</p>
+      <p>The last k-mer starts at index <code>len(seq) - k</code>, so use <code>range(len(seq) - k + 1)</code>.</p>
+      <p>All together: <code>kmers = [seq[i:i+k] for i in range(len(seq) - k + 1)]</code></p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from collections import Counter
+
+
+def count_kmers(seq, k):
+    """Return a Counter of all overlapping k-mers of length k in seq."""
+    kmers = [seq[i:i+k] for i in range(len(seq) - k + 1)]
+    return Counter(kmers)
+
+
+print(count_kmers("GATTACA", 2))   # GA, AT, TT, TA, AC, CA: 6 two-mers
+</script>
+<script type="text/x-python" class="py-tests">
+assert "count_kmers" in globals(), "I can't find the function count_kmers."
+_r = count_kmers("GATTACA", 2)
+assert sum(_r.values()) > 0, "No k-mers counted yet. Build the list with a comprehension."
+assert sum(_r.values()) != 3, "Only 3 k-mers: are you stepping by k? k-mers overlap, so step by 1."
+assert sum(_r.values()) == 6, f"GATTACA has 7 - 2 + 1 = 6 two-mers, but you counted {sum(_r.values())}. Check the range: range(len(seq) - k + 1)."
+assert dict(_r) == {"GA": 1, "AT": 1, "TT": 1, "TA": 1, "AC": 1, "CA": 1}, f"Got {dict(_r)}."
+assert dict(count_kmers("AAAA", 2)) == {"AA": 3}, "count_kmers('AAAA', 2) should be {'AA': 3}: overlapping k-mers count separately."
+assert dict(count_kmers("ATGC", 4)) == {"ATGC": 1}, "When k equals the length, there's exactly one k-mer."
+assert sum(count_kmers("ACGTACGTAC", 3).values()) == 8, "A 10-base sequence has 8 three-mers."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-3-2">
+    <h4><span class="exercise-tag">Exercise 3.2</span><span class="exercise-kind">✍️ Write it</span>Summarise read lengths</h4>
+    <p>Complete <code>summarise_lengths(lengths)</code> so it returns a dictionary with the keys <code>"mean"</code>, <code>"median"</code>, <code>"min"</code> and <code>"max"</code> of a list of read lengths. Use the <code>statistics</code> module for the mean and median. (Python's built-in <code>min()</code> and <code>max()</code> give the smallest and largest values.)</p>
+<script type="text/x-python" class="py-starter">
+from statistics import mean, median
+
+
+def summarise_lengths(lengths):
+    """Return a dictionary with the mean, median, min and max of a list of read lengths."""
+    return {}
+
+
+print(summarise_lengths([148, 150, 151, 150, 149, 35]))
+</script>
+    <div class="hints">
+      <p>A dictionary with four keys: <code>{"mean": ..., "median": ..., "min": ..., "max": ...}</code></p>
+      <p>Fill in the values with <code>mean(lengths)</code>, <code>median(lengths)</code>, <code>min(lengths)</code> and <code>max(lengths)</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from statistics import mean, median
+
+
+def summarise_lengths(lengths):
+    """Return a dictionary with the mean, median, min and max of a list of read lengths."""
+    return {
+        "mean": mean(lengths),
+        "median": median(lengths),
+        "min": min(lengths),
+        "max": max(lengths),
+    }
+
+
+print(summarise_lengths([148, 150, 151, 150, 149, 35]))
+</script>
+<script type="text/x-python" class="py-tests">
+_r = summarise_lengths([148, 150, 151, 150, 149, 35])
+assert isinstance(_r, dict) and _r, "summarise_lengths() should return a dictionary with four keys."
+assert set(_r) == {"mean", "median", "min", "max"}, f"The keys should be 'mean', 'median', 'min' and 'max', but yours are {sorted(_r)}."
+assert abs(_r["mean"] - 130.5) < 1e-9, f"The mean should be 130.5, but yours is {_r['mean']}."
+assert _r["median"] == 149.5, f"The median should be 149.5, but yours is {_r['median']}."
+assert _r["min"] == 35 and _r["max"] == 151, "min should be 35 and max 151."
+_r2 = summarise_lengths([100, 300, 200])
+assert _r2 == {"mean": 200, "median": 200, "min": 100, "max": 300}, f"For [100, 300, 200] I expected mean 200, median 200, min 100, max 300, but got {_r2}."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-3-3">
+    <h4><span class="exercise-tag">Exercise 3.3</span><span class="exercise-kind">🔮 Predict, then run</span>How many k-mers in a boring sequence?</h4>
+    <p>The sequence below is ten As in a row. <strong>Before running</strong>, predict: how many 4-mers does it contain in total, and how many <em>different</em> 4-mers? Write your two numbers in <code>my_total</code> and <code>my_different</code>, then run and check.</p>
+<script type="text/x-python" class="py-starter">
+from collections import Counter
+
+my_total = None        # your prediction: how many 4-mers in total?
+my_different = None    # your prediction: how many different 4-mers?
+
+seq = "AAAAAAAAAA"
+k = 4
+kmers = Counter([seq[i:i+k] for i in range(len(seq) - k + 1)])
+print("Total 4-mers:    ", sum(kmers.values()))
+print("Different 4-mers:", len(kmers))
+print(kmers)
+</script>
+    <div class="hints">
+      <p>The total is always length − k + 1, whatever the bases are.</p>
+      <p>Every 4-mer in this sequence is <code>AAAA</code>. So how many <em>different</em> ones can there be?</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from collections import Counter
+
+my_total = 7
+my_different = 1
+
+seq = "AAAAAAAAAA"
+k = 4
+kmers = Counter([seq[i:i+k] for i in range(len(seq) - k + 1)])
+print("Total 4-mers:    ", sum(kmers.values()))
+print("Different 4-mers:", len(kmers))
+print(kmers)
+</script>
+<script type="text/x-python" class="py-tests">
+assert my_total is not None and my_different is not None, "Write your two predictions first (numbers, without quotes)."
+assert my_total == 7, f"Total: 10 bases − 4 + 1 = 7 four-mers, not {my_total}. The window slides one base at a time."
+assert my_different == 1, f"Different: every window reads AAAA, so there is only 1 different 4-mer, not {my_different}."
+</script>
+    <p>Repetitive sequences like this are a real headache for genome assembly: if every k-mer looks the same, there's no way to tell where in the repeat a read came from.</p>
+  </div>
+
+  <div class="exercise" id="ex-3-4">
+    <h4><span class="exercise-tag challenge">🌶️ Challenge 3.4</span><span class="exercise-kind">✍️ Write it</span>Simulate sequencing errors, reproducibly</h4>
+    <p>Complete <code>add_errors(seq, error_rate, seed=1)</code>. It should set the random seed, then go through <code>seq</code> base by base. With probability <code>error_rate</code>, replace the base with a <em>different</em> base chosen at random from A, C, G and T; otherwise keep it. Return the new sequence. Calling it twice with the same seed must give the same answer.</p>
+<script type="text/x-python" class="py-starter">
+import random
+
+
+def add_errors(seq, error_rate, seed=1):
+    """Return a copy of seq where each base is swapped for another base with probability error_rate."""
+    return seq
+
+
+original = "ATGGTGCATCTGACTCCTGAGGAGAAGTCT"
+print(original)
+print(add_errors(original, 0.2))
+print(add_errors(original, 0.2))   # same seed, so this line should match the one above
+</script>
+    <div class="hints">
+      <p>Start with <code>random.seed(seed)</code>, and build the result in a list, <code>new_bases = []</code>.</p>
+      <p>For each base: <code>if random.random() &lt; error_rate:</code> pick a replacement with <code>random.choice([b for b in "ACGT" if b != base])</code>, otherwise keep <code>base</code>.</p>
+      <p>At the end: <code>return "".join(new_bases)</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import random
+
+
+def add_errors(seq, error_rate, seed=1):
+    """Return a copy of seq where each base is swapped for another base with probability error_rate."""
+    random.seed(seed)
+    new_bases = []
+    for base in seq:
+        if random.random() < error_rate:
+            new_bases.append(random.choice([b for b in "ACGT" if b != base]))
+        else:
+            new_bases.append(base)
+    return "".join(new_bases)
+
+
+original = "ATGGTGCATCTGACTCCTGAGGAGAAGTCT"
+print(original)
+print(add_errors(original, 0.2))
+print(add_errors(original, 0.2))   # same seed, so this line should match the one above
+</script>
+<script type="text/x-python" class="py-tests">
+import inspect as _inspect
+_s = "ACGT" * 50
+assert _inspect.signature(add_errors).parameters["seed"].default == 1, "Keep the default seed=1 in the def line."
+assert add_errors(_s, 0) == _s, "With error_rate 0, the sequence should come back unchanged."
+_all = add_errors(_s, 1.0)
+assert _all != _s, "With error_rate 1.0, every base should change, but the sequence came back unchanged."
+assert len(_all) == len(_s), "The new sequence should be the same length as the original."
+assert all(a != b for a, b in zip(_s, _all)), "With error_rate 1.0, every base should become a DIFFERENT base."
+assert set(_all) <= set("ACGT"), "Replacement bases should be A, C, G or T."
+assert add_errors(_s, 0.3, seed=7) == add_errors(_s, 0.3, seed=7), "The same seed should give the same result every time. Did you call random.seed(seed)?"
+assert add_errors(_s, 0.3, seed=7) != add_errors(_s, 0.3, seed=8), "Different seeds should (almost always) give different results."
+_changed = sum(a != b for a, b in zip(_s, add_errors(_s, 0.25, seed=3)))
+assert 20 <= _changed <= 85, f"With error_rate 0.25, about 50 of 200 bases should change, but {_changed} did."
+</script>
+  </div>
+
+  <div class="quiz">
+    <h3>Quick quiz</h3>
+    <div class="quiz-q">
+      <p>1. After <code>import statistics as stats</code>, how do you call <code>median</code>?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt"><code>stats.median(values)</code></button><span class="why">Right: the module is now known by its nickname, stats.</span></li>
+        <li><button class="quiz-opt"><code>median(values)</code></button><span class="why">That needs from statistics import median. With "import ... as", you use the nickname and a dot.</span></li>
+        <li><button class="quiz-opt"><code>statistics.median(values)</code></button><span class="why">With "as stats", the name statistics isn't defined in your code, only stats.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. How many 3-mers does a 10-base sequence contain?</p>
+      <ul>
+        <li><button class="quiz-opt">3</button><span class="why">That's the number of complete codons (non-overlapping). k-mers overlap.</span></li>
+        <li data-correct><button class="quiz-opt">8</button><span class="why">Yes: length − k + 1 = 10 − 3 + 1 = 8.</span></li>
+        <li><button class="quiz-opt">10</button><span class="why">The last two positions don't have room for a full 3-mer.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. Why call <code>random.seed(42)</code> at the start of a simulation?</p>
+      <ul>
+        <li><button class="quiz-opt">To make the numbers more random</button><span class="why">It doesn't make them more random; it makes them repeatable.</span></li>
+        <li data-correct><button class="quiz-opt">So the same "random" results come out every time the code runs</button><span class="why">Exactly. That makes your analysis reproducible by others and by future you.</span></li>
+        <li><button class="quiz-opt">Because random functions crash without it</button><span class="why">They work without a seed, but give different results on every run.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>4. You have a file <code>seqtools.py</code> with a function <code>gc_content</code>. How can another script in the same folder use it?</p>
+      <ul>
+        <li><button class="quiz-opt">Copy and paste the function into the script</button><span class="why">That works, but now there are two copies to keep in sync. Importing is the better way.</span></li>
+        <li data-correct><button class="quiz-opt"><code>from seqtools import gc_content</code></button><span class="why">Yes. Any .py file in the same folder can be imported as a module (without the .py).</span></li>
+        <li><button class="quiz-opt"><code>import seqtools.py</code></button><span class="why">Leave out the .py: the module's name is just seqtools.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li>The standard library comes with Python: <code>math</code>, <code>statistics</code>, <code>collections</code>, <code>random</code> and many more.</li>
+      <li>Import styles: <code>import math</code>, <code>from statistics import mean</code>, <code>import statistics as stats</code>.</li>
+      <li><code>Counter</code> counts anything; <code>.most_common(n)</code> gives the top <em>n</em>. A sequence of length <em>L</em> has <em>L</em> − <em>k</em> + 1 overlapping k-mers.</li>
+      <li>Set a random seed so simulations are reproducible.</li>
+      <li>Any <code>.py</code> file is a module: put your tested functions in one and <code>import</code> it.</li>
+    </ul>
+  </div>
+  <div class="callout celebrate">
+    <span class="callout-title">🎉 Great progress!</span>
+    <p>You just counted k-mers the way genome assemblers do, and built your first reusable module. You're now writing code the way real bioinformatics projects are organised.</p>
+  </div>
+</section>
+

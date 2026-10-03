@@ -1,0 +1,510 @@
+<!-- ======================================================================
+     LESSON 2 — WHEN THINGS GO WRONG
+     ====================================================================== -->
+<section class="lesson" id="errors" aria-labelledby="errors-title">
+  <h2 id="errors-title"><span class="lesson-kicker">Lesson 2</span>When things go wrong</h2>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why this matters in bioinformatics</span>
+    <p>Real data breaks programs. A file is cut short, a sequence contains an <code>X</code>, a spreadsheet says <code>n/a</code> instead of a number. A good pipeline doesn't hide these problems or, worse, quietly produce wrong numbers. It stops with a clear message, or deals with the problem on purpose. In this lesson you'll learn to read errors, catch them, raise your own, and test your code so bugs show up early.</p>
+  </div>
+
+  <p>First, a reminder from Level 1 that's worth repeating: <strong>errors are not failures. They are clues.</strong> Everyone gets them, all the time. The skill isn't avoiding errors; it's reading them calmly and working out what they're telling you.</p>
+
+  <h3>Reading a full traceback</h3>
+  <p>In Level 1 your errors were mostly one line deep. Once functions call other functions, the error report, called a <a class="term" href="#g-traceback">traceback</a>, lists every step that led to the problem. Here's what you'd see on your own computer if you ran this small script, called <code>analysis.py</code>:</p>
+
+  <div class="static-code">
+    <div class="static-code-bar"><strong>💻 analysis.py</strong><span>on your own computer</span></div>
+<pre><code>def gc_content(seq):
+    """Return the GC content of a DNA sequence, as a percentage."""
+    return (seq.count("G") + seq.count("C")) / len(seq) * 100
+
+
+def report(sequences):
+    """Print the GC content of every sequence in a dictionary."""
+    for name, seq in sequences.items():
+        print(f"{name}: {gc_content(seq):.1f}% GC")
+
+
+samples = {"S01": "ATGGTGCAT", "S02": "", "S03": "GGCC"}
+report(samples)</code></pre>
+  </div>
+
+  <p class="file-view-title">What Python prints</p>
+<pre class="file-view">S01: 44.4% GC
+Traceback (most recent call last):
+  File "/home/you/project/analysis.py", line 13, in &lt;module&gt;
+    report(samples)
+    ~~~~~~^^^^^^^^^
+  File "/home/you/project/analysis.py", line 9, in report
+    print(f"{name}: {gc_content(seq):.1f}% GC")
+                     ~~~~~~~~~~^^^^^
+  File "/home/you/project/analysis.py", line 3, in gc_content
+    return (seq.count("G") + seq.count("C")) / len(seq) * 100
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~
+ZeroDivisionError: division by zero</pre>
+
+  <p>How to read it:</p>
+  <ol>
+    <li><strong>Start at the bottom.</strong> The last line says <em>what</em> went wrong: <code>ZeroDivisionError: division by zero</code>.</li>
+    <li><strong>Read upwards</strong> to see <em>where</em>. "Most recent call last" means the deepest step is at the bottom: line 3, inside <code>gc_content</code>. Just above it, line 9 in <code>report</code> is the line that called <code>gc_content</code>, and line 13 called <code>report</code>.</li>
+    <li><strong>Ask why.</strong> Dividing by <code>len(seq)</code> failed, so <code>len(seq)</code> was 0. Sample S02 is an empty sequence!</li>
+  </ol>
+  <p>The little <code>~~~^^^</code> marks point at the exact part of the line that failed. Notice that S01 was printed before the crash: Python ran everything up to the problem. This page shows a shorter, friendlier version of the same information. Try it:</p>
+
+<script type="text/x-python" class="py-example">
+# This box shows an error on purpose. Read the message, then fix the data.
+def gc_content(seq):
+    """Return the GC content of a DNA sequence, as a percentage."""
+    return (seq.count("G") + seq.count("C")) / len(seq) * 100
+
+
+samples = {"S01": "ATGGTGCAT", "S02": "", "S03": "GGCC"}
+for name, seq in samples.items():
+    print(f"{name}: {gc_content(seq):.1f}% GC")
+</script>
+
+  <h3>Catching errors with <code>try</code> / <code>except</code></h3>
+  <p>Sometimes you <em>expect</em> a problem and know what to do about it. Say your read counts come from a spreadsheet, and someone typed <code>n/a</code> for a failed sample. <code>int("n/a")</code> raises a <code>ValueError</code>. With <a class="term" href="#g-try-except"><code>try</code> / <code>except</code></a> you can catch that one kind of error and carry on:</p>
+
+<script type="text/x-python" class="py-example">
+counts_from_file = ["1200", "980", "n/a", "1530"]
+
+total = 0
+for text in counts_from_file:
+    try:
+        total += int(text)
+    except ValueError:
+        print(f"Skipping '{text}': it's not a number")
+
+print("Total reads:", total)
+</script>
+
+  <ul>
+    <li>Python runs the indented lines under <code>try:</code>.</li>
+    <li>If one of them raises a <code>ValueError</code>, Python jumps straight to the <code>except ValueError:</code> block instead of stopping.</li>
+    <li>If nothing goes wrong, the <code>except</code> block is skipped.</li>
+  </ul>
+  <p>Here's a biology example. The codon table has no entry for codons containing <code>N</code> (an unknown base), so looking one up raises a <code>KeyError</code>. The standard symbol for "unknown amino acid" is <code>X</code>, so we catch the error and use that:</p>
+
+<script type="text/x-python" class="py-example">
+CODON_TABLE = {"ATG": "M", "GCC": "A", "TGG": "W", "AAG": "K", "TAA": "*"}   # a shortened table
+
+seq = "ATGGCCNNNTGGAAGTAA"
+protein = ""
+for i in range(0, len(seq) - 2, 3):
+    codon = seq[i:i+3]
+    try:
+        amino_acid = CODON_TABLE[codon]
+    except KeyError:
+        amino_acid = "X"           # unknown codon -> unknown amino acid
+    if amino_acid == "*":
+        break
+    protein += amino_acid
+
+print(protein)
+</script>
+
+  <p>You can also keep the error's message, with <code>as</code>, to show it or save it in a log:</p>
+
+<script type="text/x-python" class="py-example">
+try:
+    concentration = float("12,5")      # a comma instead of a decimal point
+except ValueError as error:
+    print("Couldn't read the concentration:", error)
+</script>
+
+  <div class="callout habit">
+    <span class="callout-title">🧹 Good habit: catch only what you expect</span>
+    <p>Always name the error you expect, like <code>except ValueError:</code>. A bare <code>except:</code> (with no error name) catches <em>everything</em>, including your own typos, so real bugs silently disappear and you get wrong results with no warning. If you don't know what to do about an error, it's better to let the program stop.</p>
+  </div>
+
+  <h3>Raising your own errors</h3>
+  <p>Python can't know that <code>"ATGXC"</code> isn't valid DNA: to Python it's just text. You know, so you can tell it. <a class="term" href="#g-raise"><code>raise</code></a> stops the program with an error of your choice and a message you write. <code>ValueError</code> is the usual choice for "this value isn't acceptable":</p>
+
+<script type="text/x-python" class="py-example">
+# The last lines of this box raise an error on purpose.
+VALID_BASES = "ACGTN"
+
+
+def validate_dna(seq):
+    """Return seq in capitals, or raise ValueError if it isn't a DNA sequence."""
+    seq = seq.upper()
+    if seq == "":
+        raise ValueError("The sequence is empty")
+    for position, base in enumerate(seq, start=1):
+        if base not in VALID_BASES:
+            raise ValueError(f"Invalid base '{base}' at position {position}")
+    return seq
+
+
+print(validate_dna("atggtgcat"))
+print(validate_dna("ATGXC"))      # raises ValueError
+print("This line never runs")
+</script>
+
+  <p>That error is a <em>good</em> thing! Instead of quietly calculating a GC content that includes an <code>X</code>, the program stops and tells you exactly what's wrong and where. This is called "failing loudly", and it's one of the best habits you can build.</p>
+  <p>Raising and catching work together. The function <em>raises</em> when it meets bad input; the code that <em>calls</em> it decides what to do. Here, bad sequences are reported and skipped, and the good ones are still analysed:</p>
+
+<script type="text/x-python" class="py-example">
+VALID_BASES = "ACGTN"
+
+
+def validate_dna(seq):
+    """Return seq in capitals, or raise ValueError if it isn't a DNA sequence."""
+    seq = seq.upper()
+    if seq == "":
+        raise ValueError("The sequence is empty")
+    for position, base in enumerate(seq, start=1):
+        if base not in VALID_BASES:
+            raise ValueError(f"Invalid base '{base}' at position {position}")
+    return seq
+
+
+samples = {"S01": "ATGGTGCAT", "S02": "MVHLTPEEK", "S03": "", "S04": "ggccta"}
+for name, seq in samples.items():
+    try:
+        clean = validate_dna(seq)
+    except ValueError as error:
+        print(f"{name}: skipped ({error})")
+        continue
+    gc = (clean.count("G") + clean.count("C")) / len(clean) * 100
+    print(f"{name}: {gc:.1f}% GC")
+</script>
+
+  <div class="callout fact">
+    <span class="callout-title">🤓 Did you know?</span>
+    <p>Sample S02 above is a protein sequence (the start of beta-globin), not DNA. Mixing up DNA and protein files is a classic real-world mistake, and since <code>A</code>, <code>C</code>, <code>G</code> and <code>T</code> are also amino acid letters, some protein sequences look a lot like DNA! Validating input catches it.</p>
+  </div>
+
+  <h3>Debugging with <code>print()</code></h3>
+  <p>The sneakiest bugs don't raise any error: the code runs and gives a wrong answer. A <a class="term" href="#g-debugging">debugging</a> trick that every programmer uses, beginners and experts alike, is to <strong>print the values in the middle of the code</strong> to see where reality differs from what you expected. Python has a handy shortcut for this: <code>f"{gc=}"</code> prints both the name and the value.</p>
+
+<script type="text/x-python" class="py-example">
+def gc_content(seq):
+    """Return the GC content of a DNA sequence, as a percentage."""
+    gc = seq.count("G") + seq.count("C")
+    print(f"DEBUG: {seq=} {gc=}")          # temporary line, to look inside
+    return gc / len(seq) * 100
+
+
+print(gc_content("GGCCAT"))   # 66.7%: looks right
+print(gc_content("ggccat"))   # 0.0%?! The debug line shows why.
+</script>
+
+  <p>The debug line shows <code>gc=0</code> for the lowercase sequence: <code>.count("G")</code> doesn't count <code>g</code>. The fix is <code>seq = seq.upper()</code> at the start of the function. Once the bug is fixed, delete the debug line.</p>
+
+  <h3>Checking your code with <code>assert</code></h3>
+  <p><a class="term" href="#g-assert"><code>assert</code></a> checks that something is true. If it is, nothing happens. If it isn't, Python stops with an <code>AssertionError</code> and your message. It's the simplest way to <strong>test</strong> a function: try it on tiny examples where you already know the right answer.</p>
+
+<script type="text/x-python" class="py-example">
+def reverse_complement(seq):
+    """Return the reverse complement of a DNA sequence."""
+    pairs = {"A": "T", "T": "A", "G": "C", "C": "G"}
+    result = ""
+    for base in seq:
+        result = pairs[base] + result
+    return result
+
+
+# Small examples where we know the answer by heart
+assert reverse_complement("A") == "T"
+assert reverse_complement("AACG") == "CGTT", "AACG should give CGTT"
+assert reverse_complement("") == "", "an empty sequence should give an empty result"
+assert reverse_complement("GAATTC") == "GAATTC", "GAATTC is its own reverse complement"
+print("All tests passed ✅")
+</script>
+
+  <p>Now change <code>pairs</code> so that <code>"G": "G"</code> (a typo you could easily make), and run again. The tests catch it immediately.</p>
+  <div class="callout habit">
+    <span class="callout-title">🧹 Good habit: test with small, known examples first</span>
+    <p>Before running a function on 10 million reads, run it on three bases where you can work out the answer in your head. If it's right on tiny examples, you can trust it much more on big data. The <strong>Check my answer</strong> button on this page works exactly like this: it's a set of <code>assert</code> lines!</p>
+  </div>
+  <div class="callout warn">
+    <span class="callout-title">⚠️ Careful with decimals</span>
+    <p>Computers store decimals with tiny rounding errors: <code>0.1 + 0.2 == 0.3</code> is <code>False</code>! When testing decimal results, round them first: <code>assert round(gc_content("GATTACA"), 2) == 28.57</code>.</p>
+  </div>
+
+  <h3>Exercises</h3>
+  <div class="exercise" id="ex-2-1">
+    <h4><span class="exercise-tag">Exercise 2.1</span><span class="exercise-kind">🐞 Fix the bug</span>The average that isn't</h4>
+    <p>This function should return the average length of the sequences in a list. It runs without any error, but the answer is wrong. Find the bug and fix it. (Adding a debug <code>print()</code> inside the loop may help!)</p>
+<script type="text/x-python" class="py-starter">
+def mean_length(sequences):
+    """Return the average length of a list of sequences."""
+    total = 0
+    for seq in sequences:
+        total += len(seq)
+        return total / len(sequences)
+
+
+print(mean_length(["ATG", "ATGGCC", "ATGGCCTAA"]))   # should be 6.0
+</script>
+    <div class="hints">
+      <p>Add <code>print(f"{seq=} {total=}")</code> as the first line in the loop. How many times does it print?</p>
+      <p><code>return</code> ends the function immediately. Where is the <code>return</code> line? Should it be inside the loop or after it?</p>
+      <p>Move <code>return</code> one level to the left, so it lines up with <code>for</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+def mean_length(sequences):
+    """Return the average length of a list of sequences."""
+    total = 0
+    for seq in sequences:
+        total += len(seq)
+    return total / len(sequences)
+
+
+print(mean_length(["ATG", "ATGGCC", "ATGGCCTAA"]))   # should be 6.0
+</script>
+<script type="text/x-python" class="py-tests">
+assert "mean_length" in globals(), "I can't find the function mean_length."
+_r = mean_length(["ATG", "ATGGCC", "ATGGCCTAA"])
+assert _r != 1.0, "It still returns 1.0: the function stops after the first sequence. Is the return line inside the loop?"
+assert _r == 6.0, f"mean_length(['ATG', 'ATGGCC', 'ATGGCCTAA']) should be 6.0, but gave {_r}."
+assert mean_length(["AAAA", "TT"]) == 3.0, f"mean_length(['AAAA', 'TT']) should be 3.0, but gave {mean_length(['AAAA', 'TT'])}."
+assert mean_length(["GATTACA"]) == 7.0, "A single sequence of 7 bases should give 7.0."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-2-2">
+    <h4><span class="exercise-tag">Exercise 2.2</span><span class="exercise-kind">✍️ Write it</span>Fail loudly on bad DNA</h4>
+    <p>Complete <code>validate_dna(seq)</code>. It should:</p>
+    <ul>
+      <li>return the sequence in capitals if it only contains A, C, G, T or N (upper- or lowercase),</li>
+      <li><code>raise ValueError</code> if the sequence is empty,</li>
+      <li><code>raise ValueError</code> if there's any other character, with a message that names the bad character and its position, counting from 1. For <code>"ATGXC"</code>: <code>Invalid base 'X' at position 4</code>.</li>
+    </ul>
+<script type="text/x-python" class="py-starter">
+VALID_BASES = "ACGTN"
+
+
+def validate_dna(seq):
+    """Return seq in capitals, or raise ValueError if it isn't a DNA sequence."""
+    seq = seq.upper()
+    # check for an empty sequence here
+
+    # check every base here
+
+    return seq
+
+
+print(validate_dna("atgnc"))    # should print ATGNC
+# print(validate_dna("ATGXC"))  # delete the # at the start to see your error message
+</script>
+    <div class="hints">
+      <p>For the empty case: <code>if seq == "":</code> then, indented, <code>raise ValueError("The sequence is empty")</code>.</p>
+      <p>For the bases: <code>for position, base in enumerate(seq, start=1):</code> and inside, <code>if base not in VALID_BASES:</code>.</p>
+      <p>The message can be an f-string: <code>raise ValueError(f"Invalid base '{base}' at position {position}")</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+VALID_BASES = "ACGTN"
+
+
+def validate_dna(seq):
+    """Return seq in capitals, or raise ValueError if it isn't a DNA sequence."""
+    seq = seq.upper()
+    if seq == "":
+        raise ValueError("The sequence is empty")
+    for position, base in enumerate(seq, start=1):
+        if base not in VALID_BASES:
+            raise ValueError(f"Invalid base '{base}' at position {position}")
+    return seq
+
+
+print(validate_dna("atgnc"))    # should print ATGNC
+# print(validate_dna("ATGXC"))  # delete the # at the start to see your error message
+</script>
+<script type="text/x-python" class="py-tests">
+assert validate_dna("atgnc") == "ATGNC", "validate_dna('atgnc') should return 'ATGNC'."
+assert validate_dna("GATTACA") == "GATTACA", "validate_dna('GATTACA') should return 'GATTACA'."
+for _bad, _char, _pos in [("ATGXC", "X", 4), ("U", "U", 1), ("ACGT-A", "-", 5), ("acg tc", " ", 4)]:
+    try:
+        validate_dna(_bad)
+    except ValueError as _e:
+        _msg = str(_e)
+        assert repr(_char)[1:-1] in _msg or _char in _msg, f"For {_bad!r} the message should name the bad character {_char!r}. Your message: {_msg!r}"
+        assert str(_pos) in _msg, f"For {_bad!r} the message should give the position {_pos} (counting from 1). Your message: {_msg!r}"
+    else:
+        raise AssertionError(f"validate_dna({_bad!r}) should raise a ValueError, but it didn't.")
+try:
+    validate_dna("")
+except ValueError:
+    pass
+else:
+    raise AssertionError("validate_dna('') should raise a ValueError for an empty sequence.")
+</script>
+  </div>
+
+  <div class="exercise" id="ex-2-3">
+    <h4><span class="exercise-tag">Exercise 2.3</span><span class="exercise-kind">✍️ Write it</span>Translate, even with unknown bases</h4>
+    <p>Complete <code>translate_safe(seq)</code>. It works like Level 1's <code>translate()</code>, but when a codon isn't in <code>CODON_TABLE</code> (because it contains an <code>N</code>), it should add <code>"X"</code> to the protein instead of crashing. Use <code>try</code> / <code>except KeyError</code>.</p>
+<script type="text/x-python" class="py-starter">
+CODON_TABLE = {
+    "TTT": "F", "TTC": "F", "TTA": "L", "TTG": "L", "CTT": "L", "CTC": "L", "CTA": "L", "CTG": "L",
+    "ATT": "I", "ATC": "I", "ATA": "I", "ATG": "M", "GTT": "V", "GTC": "V", "GTA": "V", "GTG": "V",
+    "TCT": "S", "TCC": "S", "TCA": "S", "TCG": "S", "CCT": "P", "CCC": "P", "CCA": "P", "CCG": "P",
+    "ACT": "T", "ACC": "T", "ACA": "T", "ACG": "T", "GCT": "A", "GCC": "A", "GCA": "A", "GCG": "A",
+    "TAT": "Y", "TAC": "Y", "TAA": "*", "TAG": "*", "CAT": "H", "CAC": "H", "CAA": "Q", "CAG": "Q",
+    "AAT": "N", "AAC": "N", "AAA": "K", "AAG": "K", "GAT": "D", "GAC": "D", "GAA": "E", "GAG": "E",
+    "TGT": "C", "TGC": "C", "TGA": "*", "TGG": "W", "CGT": "R", "CGC": "R", "CGA": "R", "CGG": "R",
+    "AGT": "S", "AGC": "S", "AGA": "R", "AGG": "R", "GGT": "G", "GGC": "G", "GGA": "G", "GGG": "G",
+}
+
+
+def translate_safe(seq):
+    """Translate DNA into protein. Unknown codons become X; stop at the first stop codon."""
+    protein = ""
+    for i in range(0, len(seq) - 2, 3):
+        amino_acid = CODON_TABLE[seq[i:i+3]]   # crashes on codons with N
+        if amino_acid == "*":
+            break
+        protein += amino_acid
+    return protein
+
+
+print(translate_safe("ATGGTGCATCTG"))      # MVHL
+print(translate_safe("ATGNNNCATCTGTAA"))   # should be MXHL
+</script>
+    <div class="hints">
+      <p>Wrap the look-up line in <code>try:</code>, and add <code>except KeyError:</code> straight after it, at the same indentation as <code>try:</code>.</p>
+      <p>Inside the <code>except</code> block: <code>amino_acid = "X"</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+CODON_TABLE = {
+    "TTT": "F", "TTC": "F", "TTA": "L", "TTG": "L", "CTT": "L", "CTC": "L", "CTA": "L", "CTG": "L",
+    "ATT": "I", "ATC": "I", "ATA": "I", "ATG": "M", "GTT": "V", "GTC": "V", "GTA": "V", "GTG": "V",
+    "TCT": "S", "TCC": "S", "TCA": "S", "TCG": "S", "CCT": "P", "CCC": "P", "CCA": "P", "CCG": "P",
+    "ACT": "T", "ACC": "T", "ACA": "T", "ACG": "T", "GCT": "A", "GCC": "A", "GCA": "A", "GCG": "A",
+    "TAT": "Y", "TAC": "Y", "TAA": "*", "TAG": "*", "CAT": "H", "CAC": "H", "CAA": "Q", "CAG": "Q",
+    "AAT": "N", "AAC": "N", "AAA": "K", "AAG": "K", "GAT": "D", "GAC": "D", "GAA": "E", "GAG": "E",
+    "TGT": "C", "TGC": "C", "TGA": "*", "TGG": "W", "CGT": "R", "CGC": "R", "CGA": "R", "CGG": "R",
+    "AGT": "S", "AGC": "S", "AGA": "R", "AGG": "R", "GGT": "G", "GGC": "G", "GGA": "G", "GGG": "G",
+}
+
+
+def translate_safe(seq):
+    """Translate DNA into protein. Unknown codons become X; stop at the first stop codon."""
+    protein = ""
+    for i in range(0, len(seq) - 2, 3):
+        try:
+            amino_acid = CODON_TABLE[seq[i:i+3]]
+        except KeyError:
+            amino_acid = "X"
+        if amino_acid == "*":
+            break
+        protein += amino_acid
+    return protein
+
+
+print(translate_safe("ATGGTGCATCTG"))      # MVHL
+print(translate_safe("ATGNNNCATCTGTAA"))   # should be MXHL
+</script>
+<script type="text/x-python" class="py-tests">
+assert translate_safe("ATGGTGCATCTG") == "MVHL", "translate_safe('ATGGTGCATCTG') should still give 'MVHL'."
+_r = translate_safe("ATGNNNCATCTGTAA")
+assert _r == "MXHL", f"translate_safe('ATGNNNCATCTGTAA') should give 'MXHL' but gave {_r!r}."
+assert translate_safe("NNNATGTAGCCC") == "XM", "translate_safe('NNNATGTAGCCC') should give 'XM': unknown codon, then M, then stop."
+assert translate_safe("ATGANG") == "MX", "translate_safe('ATGANG') should give 'MX'."
+assert translate_safe("TAAATG") == "", "A sequence starting with a stop codon should give ''."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-2-4">
+    <h4><span class="exercise-tag challenge">🌶️ Challenge 2.4</span><span class="exercise-kind">🐞 Fix the bug</span>Two bugs in a read counter</h4>
+    <p>This code should add up the read counts of all samples, skip any sample whose count isn't a number (with a message), and print the total. The correct total is <strong>3710</strong>. It contains <strong>two</strong> bugs. Run it, read the error, and fix them one at a time. The check will also try your code with a different list of samples.</p>
+<script type="text/x-python" class="py-starter">
+lines = ["S01 1200", "S02 980", "S03 n/a", "S04 1530"]
+
+total = 0
+for line in lines:
+    name, count = line.split()
+    try:
+        total = int(count)
+    except KeyError:
+        print(f"Skipping {name}: no count")
+
+print("Total reads:", total)
+</script>
+    <div class="hints">
+      <p><code>name, count = line.split()</code> splits <code>"S01 1200"</code> into two variables at once: <code>name = "S01"</code> and <code>count = "1200"</code>. That line is fine.</p>
+      <p>Bug 1: read the error message. Which kind of error does <code>int("n/a")</code> raise? Is that the one being caught?</p>
+      <p>Bug 2: once it runs, the total is 1530 (just the last sample), not 3710. Does <code>total = int(count)</code> <em>add</em> to the total, or replace it?</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+lines = ["S01 1200", "S02 980", "S03 n/a", "S04 1530"]
+
+total = 0
+for line in lines:
+    name, count = line.split()
+    try:
+        total += int(count)
+    except ValueError:
+        print(f"Skipping {name}: no count")
+
+print("Total reads:", total)
+</script>
+<script type="text/x-python" class="py-tests">
+import re as _re
+assert total != 1530 and total != 2730, f"The total is {total}: it's being replaced each time instead of added to. Use total += int(count)."
+assert total == 3710, f"The total should be 3710 but is {total}."
+assert "S03" in _output, "Print a message when a sample is skipped, mentioning its name (S03)."
+_code = _re.sub(r"^lines\s*=.*$", 'lines = ["A 10", "B -", "C 5", "D 7", "E ?"]', _source, count=1, flags=_re.M)
+_ns = {}
+exec(_code, _ns)
+assert _ns.get("total") == 22, f"With other samples ('A 10', 'B -', 'C 5', 'D 7', 'E ?') the total should be 22, but your code gives {_ns.get('total')}. Did you type the answer in instead of fixing the loop?"
+</script>
+  </div>
+
+  <div class="quiz">
+    <h3>Quick quiz</h3>
+    <div class="quiz-q">
+      <p>1. A traceback is several lines long. Where do you look first?</p>
+      <ul>
+        <li><button class="quiz-opt">The first line</button><span class="why">The first line just says "Traceback (most recent call last)". The useful part is at the bottom.</span></li>
+        <li data-correct><button class="quiz-opt">The last line, then upwards</button><span class="why">Right: the last line names the error, and the lines above it show the chain of calls that led there.</span></li>
+        <li><button class="quiz-opt">The middle line</button><span class="why">Start at the bottom: it says what went wrong. Then read upwards for where.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. Which <code>except</code> catches the error from <code>int("n/a")</code>?</p>
+      <ul>
+        <li><button class="quiz-opt"><code>except KeyError:</code></button><span class="why">KeyError is for missing dictionary keys. Converting bad text to a number is a ValueError.</span></li>
+        <li data-correct><button class="quiz-opt"><code>except ValueError:</code></button><span class="why">Correct: the text has the right type (a string) but an unsuitable value.</span></li>
+        <li><button class="quiz-opt"><code>except ZeroDivisionError:</code></button><span class="why">Nothing is divided here.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. What does <code>raise ValueError("Invalid base 'X'")</code> do?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt">Stops the program with that error and message (unless something catches it)</button><span class="why">Yes. The code that called the function can catch it with try/except, or let it stop the program.</span></li>
+        <li><button class="quiz-opt">Prints a warning and carries on</button><span class="why">That's what print() does. raise really stops, unless the error is caught.</span></li>
+        <li><button class="quiz-opt">Removes the X from the sequence</button><span class="why">raise never changes data. It reports a problem.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>4. <code>assert gc_content("GGCC") == 100</code> runs and nothing appears. What does that mean?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt">The test passed</button><span class="why">Right: assert is silent when the condition is True. It only speaks up when something is wrong.</span></li>
+        <li><button class="quiz-opt">The test was skipped</button><span class="why">It wasn't skipped. A passing assert simply has nothing to say.</span></li>
+        <li><button class="quiz-opt">The function has no return line</button><span class="why">Then gc_content would give None, None == 100 would be False, and the assert would fail loudly.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li>Read a traceback from the bottom up: the last line says what went wrong, the lines above show where.</li>
+      <li><code>try</code> / <code>except SomeError:</code> handles an error you expect. Always name the error you expect.</li>
+      <li><code>raise ValueError("clear message")</code> fails loudly on bad input, instead of producing wrong results.</li>
+      <li>Debug by printing values in the middle of the code: <code>print(f"{x=}")</code>.</li>
+      <li>Test functions with <code>assert</code> on small examples where you know the answer.</li>
+    </ul>
+  </div>
+  <div class="callout celebrate">
+    <span class="callout-title">🎉 Bug hunter unlocked</span>
+    <p>You just validated input, handled bad data gracefully and tested your functions. Real bioinformatics pipelines are built exactly like this, so they can survive the messy data the world throws at them.</p>
+  </div>
+</section>
+

@@ -1,0 +1,361 @@
+<!-- ======================================================================
+     LESSON 7 — TABLES WITH PANDAS, PART 1
+     ====================================================================== -->
+<section class="lesson" id="pandas-1" aria-labelledby="pandas-1-title">
+  <h2 id="pandas-1-title"><span class="lesson-kicker">Lesson 7</span>Tables with pandas, part 1</h2>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why this matters in bioinformatics</span>
+    <p>So many biological results are tables: genes × samples, reads × quality statistics, variants × annotations. You could handle them with lists and dictionaries, but it gets long fast. <a class="term" href="#g-pandas">pandas</a> is Python's library for tables. Think of it as a spreadsheet you control with code: it handles millions of rows, never "helpfully" turns gene names into dates, and every step you take is written down, so anyone can repeat it.</p>
+  </div>
+
+  <div class="callout tip">
+    <span class="callout-title">💡 Loading pandas</span>
+    <p>pandas isn't built into Python, so this page downloads it (about 8 MB) when you reach this lesson. The first code box may take a few seconds; after that it's quick. Watch the badge at the top of the screen.</p>
+  </div>
+
+  <h3>Our data: a gene expression experiment</h3>
+  <p>Imagine cells grown in a dish, some untreated (<em>control</em>) and some treated with a drug that damages DNA. DNA damage switches on the protein p53, which turns on genes that pause the cell cycle and repair the damage. RNA sequencing then measures how strongly each gene is expressed, in <a class="term" href="#g-tpm">TPM</a> (transcripts per million): roughly, out of every million mRNA molecules in the cell, how many come from this gene.</p>
+  <p class="file-view-title">expression.csv (made-up teaching data)</p>
+  <pre class="file-view" data-show-file="expression.csv"></pre>
+  <p>This table is <strong>made-up teaching data</strong>, but the genes are real and the pattern is realistic: <em>CDKN1A</em> (p21) and <em>MDM2</em> are classic genes switched on by p53, cell-cycle genes such as <em>PLK1</em> go down, and the "housekeeping" genes <em>GAPDH</em> and <em>ACTB</em> stay steady. One value is missing on purpose (FAS, treated): real data has gaps too.</p>
+
+  <h3>DataFrames: reading a table</h3>
+  <p><code>pd.read_csv()</code> reads a CSV file into a <a class="term" href="#g-dataframe">DataFrame</a>, pandas' word for a table. Everyone imports pandas with the nickname <code>pd</code>, and calls their main table <code>df</code>.</p>
+
+<script type="text/x-python" class="py-example">
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+print(df)
+</script>
+
+  <p>pandas worked out the columns from the header line, turned the numbers into real numbers, and marked the missing value as <code>NaN</code> ("not a number"). The numbers down the left (0, 1, 2…) are the <strong>index</strong>: a label for each row.</p>
+  <p>With a big table, you don't want to print everything. These tell you what you're working with:</p>
+
+<script type="text/x-python" class="py-example">
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+print(df.head(3))          # the first 3 rows (head() alone shows 5)
+print()
+print("Shape:", df.shape)  # (rows, columns)
+print("Columns:", list(df.columns))
+print()
+print(df.dtypes)           # the data type of each column
+</script>
+
+  <p><code>.shape</code> is <code>(15, 3)</code>: 15 rows (genes) and 3 columns. In <code>.dtypes</code>, <code>float64</code> means decimal numbers and <code>str</code> means text.</p>
+
+  <h3>Selecting columns</h3>
+  <p>Square brackets with a column name give you that column. A single column is called a <a class="term" href="#g-series">Series</a>. To get several columns, put a <em>list</em> of names inside the brackets, which is why you see double brackets:</p>
+
+<script type="text/x-python" class="py-example">
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+
+treated = df["treated_tpm"]                 # one column: a Series
+print(treated.head())
+print("Highest treated TPM:", treated.max())
+print("Mean treated TPM:", round(treated.mean(), 1))
+
+print(df[["gene", "treated_tpm"]].head(3))   # two columns: still a DataFrame
+print(df["gene"].tolist()[:5])               # .tolist() turns a column into a normal list
+</script>
+
+  <p>Notice that <code>.mean()</code> simply skipped the missing value. We'll come back to missing values in Lesson 8.</p>
+
+  <h3>Filtering rows</h3>
+  <p>This is where pandas shines. A comparison on a column gives a Series of <code>True</code>/<code>False</code>, one per row. Put that inside <code>df[...]</code>, and you keep only the rows marked <code>True</code>:</p>
+
+<script type="text/x-python" class="py-example">
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+
+is_high = df["treated_tpm"] > 100
+print(is_high.head())          # True/False for each row
+
+print(df[is_high])             # only the rows where it's True
+</script>
+
+  <p>Usually you write it in one go: <code>df[df["treated_tpm"] &gt; 100]</code>. To combine conditions, use <code>&amp;</code> (and), <code>|</code> (or) and <code>~</code> (not), with <strong>brackets around each condition</strong>:</p>
+
+<script type="text/x-python" class="py-example">
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+
+both_high = df[(df["control_tpm"] > 100) & (df["treated_tpm"] > 100)]
+print(both_high)
+
+p53_genes = df[df["gene"].isin(["TP53", "CDKN1A", "MDM2"])]   # .isin() checks against a list
+print(p53_genes)
+</script>
+
+  <div class="callout warn">
+    <span class="callout-title">⚠️ <code>&amp;</code> and <code>|</code>, not <code>and</code> and <code>or</code></span>
+    <p>With pandas columns, Python's <code>and</code> and <code>or</code> give an error ("The truth value of a Series is ambiguous"). Use <code>&amp;</code> and <code>|</code> instead, and put brackets around each comparison: <code>(df["a"] &gt; 1) &amp; (df["b"] &lt; 5)</code>. Without the brackets, Python works out the <code>&amp;</code> first and the result is a confusing error.</p>
+  </div>
+
+  <h3>Sorting</h3>
+
+<script type="text/x-python" class="py-example">
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+
+top = df.sort_values("treated_tpm", ascending=False)   # biggest first
+print(top.head(5))
+</script>
+
+  <p>Sorting doesn't change <code>df</code>: like string methods, it gives you a <em>new</em> DataFrame, which we stored in <code>top</code>.</p>
+
+  <h3>New calculated columns</h3>
+  <p>Assigning to a new column name creates a column, calculated for every row at once. No loop needed! Let's calculate the <a class="term" href="#g-log2fc">log2 fold change</a>: how many times the expression doubled (positive) or halved (negative) after treatment.</p>
+  <p>Two details. First, we borrow <code>log2</code> from NumPy, the number-crunching library that pandas is built on, because it works on a whole column at once. Second, we add 1 to both values before dividing. This is called a <a class="term" href="#g-pseudocount">pseudocount</a>: it avoids dividing by zero (and the log of zero) for genes that aren't expressed at all, and it stops tiny values like 0.1 → 0.2 from looking like a huge "doubling".</p>
+
+<script type="text/x-python" class="py-example">
+import numpy as np
+import pandas as pd
+
+PSEUDOCOUNT = 1
+
+df = pd.read_csv("expression.csv")
+df["fold_change"] = (df["treated_tpm"] + PSEUDOCOUNT) / (df["control_tpm"] + PSEUDOCOUNT)
+df["log2_fc"] = np.log2(df["fold_change"])
+
+print(df.round(2))
+</script>
+
+  <p>Look at the result: the p53 targets (CDKN1A, MDM2, GADD45A, TP53I3, BAX) have log2 fold changes above 1, which means they at least doubled. The cell-cycle genes (MYC, CCNB1, PLK1) went down. GAPDH and ACTB stayed close to 0. That's exactly what the biology predicts. (FAS shows <code>NaN</code> because its treated value is missing: any calculation with a missing value gives a missing result.)</p>
+
+  <h3>Reading TSV files</h3>
+  <p><code>read_csv()</code> reads tab-separated files too: just tell it the separator with <code>sep="\t"</code>.</p>
+
+<script type="text/x-python" class="py-example">
+import pandas as pd
+
+annotation = pd.read_csv("annotation.tsv", sep="\t")
+print(annotation.head())
+print(annotation.shape)
+</script>
+
+  <div class="callout habit">
+    <span class="callout-title">🧹 Good habit: analysis in code, not by hand</span>
+    <p>Filtering and sorting in a spreadsheet by clicking leaves no record of what you did. With pandas, every step is written in your script, so you (or a reviewer) can see exactly how a result was made and repeat it on new data in seconds. That's what <a class="term" href="#g-reproducible">reproducible</a> means.</p>
+  </div>
+
+  <h3>Exercises</h3>
+  <div class="exercise" id="ex-7-1">
+    <h4><span class="exercise-tag">Exercise 7.1</span><span class="exercise-kind">✍️ Write it</span>Explore a table</h4>
+    <p>Read <code>annotation.tsv</code> (a tab-separated file!) into a DataFrame called <code>annotation</code>. Then store the number of rows in <code>n_rows</code> and the list of column names in <code>column_names</code>.</p>
+<script type="text/x-python" class="py-starter">
+import pandas as pd
+
+annotation = None
+n_rows = 0
+column_names = []
+
+print(n_rows, column_names)
+</script>
+    <div class="hints">
+      <p><code>annotation = pd.read_csv("annotation.tsv", sep="\t")</code></p>
+      <p><code>annotation.shape</code> is <code>(rows, columns)</code>, so the number of rows is <code>annotation.shape[0]</code> (or <code>len(annotation)</code>). The names: <code>list(annotation.columns)</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import pandas as pd
+
+annotation = pd.read_csv("annotation.tsv", sep="\t")
+n_rows = annotation.shape[0]
+column_names = list(annotation.columns)
+
+print(n_rows, column_names)
+</script>
+<script type="text/x-python" class="py-tests">
+import pandas as _pd
+assert isinstance(annotation, _pd.DataFrame), "annotation should be a DataFrame: use pd.read_csv(...)."
+assert annotation.shape[1] != 1, "The table has only one column: pandas didn't split on tabs. Add sep=\"\\t\"."
+assert n_rows == 14, f"annotation.tsv has 14 rows (genes), but n_rows is {n_rows}."
+assert list(column_names) == ["gene", "chromosome", "pathway", "description"], f"column_names should be ['gene', 'chromosome', 'pathway', 'description'] but is {column_names}."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-7-2">
+    <h4><span class="exercise-tag">Exercise 7.2</span><span class="exercise-kind">✍️ Write it</span>Highly expressed after treatment</h4>
+    <p>From <code>expression.csv</code>, make a DataFrame <code>high_treated</code> with only the genes whose <code>treated_tpm</code> is above <code>MIN_TPM</code>, sorted from highest to lowest <code>treated_tpm</code>. Then store their names, in that order, in the list <code>high_genes</code>.</p>
+<script type="text/x-python" class="py-starter">
+import pandas as pd
+
+MIN_TPM = 100
+
+df = pd.read_csv("expression.csv")
+high_treated = df
+high_genes = []
+
+print(high_treated)
+print(high_genes)
+</script>
+    <div class="hints">
+      <p>Filter first: <code>df[df["treated_tpm"] &gt; MIN_TPM]</code>.</p>
+      <p>Then sort the result: add <code>.sort_values("treated_tpm", ascending=False)</code> to the end.</p>
+      <p>The names: <code>high_genes = high_treated["gene"].tolist()</code></p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import pandas as pd
+
+MIN_TPM = 100
+
+df = pd.read_csv("expression.csv")
+high_treated = df[df["treated_tpm"] > MIN_TPM].sort_values("treated_tpm", ascending=False)
+high_genes = high_treated["gene"].tolist()
+
+print(high_treated)
+print(high_genes)
+</script>
+<script type="text/x-python" class="py-tests">
+import re as _re
+assert len(high_treated) != 15, "high_treated still has all 15 genes. Filter it with df[df[\"treated_tpm\"] > MIN_TPM]."
+assert sorted(high_genes) == sorted(["ACTB", "GAPDH", "CDKN1A", "PCNA", "BAX", "MDM2"]), f"The genes with treated TPM above 100 are ACTB, GAPDH, CDKN1A, PCNA, BAX and MDM2, but high_genes is {high_genes}."
+assert high_genes == ["ACTB", "GAPDH", "CDKN1A", "PCNA", "BAX", "MDM2"], f"Right genes, but the order should be highest first: {['ACTB', 'GAPDH', 'CDKN1A', 'PCNA', 'BAX', 'MDM2']}. Use ascending=False."
+_ns = {}
+exec(_re.sub(r"^MIN_TPM\s*=.*$", "MIN_TPM = 1000", _source, count=1, flags=_re.M), _ns)
+assert _ns["high_genes"] == ["ACTB", "GAPDH"], f"With MIN_TPM = 1000 only ACTB and GAPDH should remain, but your code gives {_ns['high_genes']}. Use the MIN_TPM constant."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-7-3">
+    <h4><span class="exercise-tag">Exercise 7.3</span><span class="exercise-kind">🔮 Predict, then run</span>High in both conditions</h4>
+    <p>Look at the table at the top of this lesson. <strong>Without running anything</strong>, predict how many genes have a TPM above 50 in <em>both</em> control and treated cells. Write the number in <code>my_prediction</code>, then run and check.</p>
+<script type="text/x-python" class="py-starter">
+import pandas as pd
+
+my_prediction = None
+
+df = pd.read_csv("expression.csv")
+both = df[(df["control_tpm"] > 50) & (df["treated_tpm"] > 50)]
+print(both)
+print("Number of genes:", len(both))
+</script>
+    <div class="hints">
+      <p>Go down the table and look for genes where <em>both</em> numbers are above 50. MYC, CCNB1 and PLK1 start high but drop after treatment. BAX and CDKN1A start low.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import pandas as pd
+
+my_prediction = 3
+
+df = pd.read_csv("expression.csv")
+both = df[(df["control_tpm"] > 50) & (df["treated_tpm"] > 50)]
+print(both)
+print("Number of genes:", len(both))
+</script>
+<script type="text/x-python" class="py-tests">
+assert my_prediction is not None, "Write your prediction first (a number, without quotes)."
+assert my_prediction == len(both), f"Not quite: {len(both)} genes ({', '.join(both['gene'])}) are above 50 in both conditions. The & means BOTH conditions must be true."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-7-4">
+    <h4><span class="exercise-tag challenge">🌶️ Challenge 7.4</span><span class="exercise-kind">✍️ Write it</span>Which genes went up?</h4>
+    <p>Add a column <code>log2_fc</code> to <code>df</code>: the log2 of (treated + 1) ÷ (control + 1). Then store the names of the genes with a log2 fold change above <code>MIN_LOG2_FC</code> in the list <code>up_genes</code>, in table order.</p>
+<script type="text/x-python" class="py-starter">
+import numpy as np
+import pandas as pd
+
+PSEUDOCOUNT = 1
+MIN_LOG2_FC = 1   # at least doubled
+
+df = pd.read_csv("expression.csv")
+# add the log2_fc column here
+
+up_genes = []
+
+print(df.round(2))
+print(up_genes)
+</script>
+    <div class="hints">
+      <p><code>df["log2_fc"] = np.log2((df["treated_tpm"] + PSEUDOCOUNT) / (df["control_tpm"] + PSEUDOCOUNT))</code></p>
+      <p><code>up_genes = df[df["log2_fc"] &gt; MIN_LOG2_FC]["gene"].tolist()</code></p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import numpy as np
+import pandas as pd
+
+PSEUDOCOUNT = 1
+MIN_LOG2_FC = 1   # at least doubled
+
+df = pd.read_csv("expression.csv")
+df["log2_fc"] = np.log2((df["treated_tpm"] + PSEUDOCOUNT) / (df["control_tpm"] + PSEUDOCOUNT))
+
+up_genes = df[df["log2_fc"] > MIN_LOG2_FC]["gene"].tolist()
+
+print(df.round(2))
+print(up_genes)
+</script>
+<script type="text/x-python" class="py-tests">
+import re as _re
+assert "log2_fc" in df.columns, "I can't find a column called log2_fc in df."
+_cdkn = float(df.loc[df["gene"] == "CDKN1A", "log2_fc"].iloc[0])
+import math as _math
+assert abs(_cdkn - _math.log2(249.9 / 32.5)) < 0.001, f"For CDKN1A, log2((248.9 + 1) / (31.5 + 1)) is about 2.94, but your column has {_cdkn:.3f}. Check the pseudocount and the order (treated on top)."
+assert up_genes == ["CDKN1A", "MDM2", "BAX", "GADD45A", "TP53I3"], f"up_genes should be ['CDKN1A', 'MDM2', 'BAX', 'GADD45A', 'TP53I3'] but is {up_genes}."
+_ns = {}
+exec(_re.sub(r"^MIN_LOG2_FC\s*=.*$", "MIN_LOG2_FC = 2.5", _source, count=1, flags=_re.M), _ns)
+assert _ns["up_genes"] == ["CDKN1A", "GADD45A", "TP53I3"], f"With MIN_LOG2_FC = 2.5 your code gives {_ns['up_genes']}, but it should be ['CDKN1A', 'GADD45A', 'TP53I3']. Use the constant."
+</script>
+  </div>
+
+  <div class="quiz">
+    <h3>Quick quiz</h3>
+    <div class="quiz-q">
+      <p>1. <code>df.shape</code> gives <code>(15, 3)</code>. What does that mean?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt">15 rows and 3 columns</button><span class="why">Right: shape is always (rows, columns).</span></li>
+        <li><button class="quiz-opt">15 columns and 3 rows</button><span class="why">It's the other way round: rows come first.</span></li>
+        <li><button class="quiz-opt">The table uses 15 KB of memory</button><span class="why">shape is about the size of the table in rows and columns, not memory.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. What does <code>df[df["treated_tpm"] &gt; 100]</code> give you?</p>
+      <ul>
+        <li><button class="quiz-opt">A list of True and False values</button><span class="why">That's what the inner part, df["treated_tpm"] &gt; 100, gives. Wrapping it in df[...] uses it to choose rows.</span></li>
+        <li data-correct><button class="quiz-opt">A new DataFrame with only the rows where treated_tpm is above 100</button><span class="why">Correct. The True/False values pick which rows to keep.</span></li>
+        <li><button class="quiz-opt">The treated_tpm column, with values above 100 removed</button><span class="why">It keeps whole rows, and keeps the ones ABOVE 100.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. Why add a pseudocount of 1 before calculating a fold change?</p>
+      <ul>
+        <li><button class="quiz-opt">To make every gene look more expressed</button><span class="why">Adding 1 barely changes highly expressed genes. It's about avoiding problems with zeros and tiny values.</span></li>
+        <li data-correct><button class="quiz-opt">To avoid dividing by zero, and so tiny values (0.1 → 0.2) don't look like big changes</button><span class="why">Exactly. Without it, a gene going from 0 to 0.5 TPM would have an infinite fold change.</span></li>
+        <li><button class="quiz-opt">Because pandas can't divide decimals</button><span class="why">pandas divides decimals perfectly well.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>4. Which line correctly keeps genes with control above 10 <strong>and</strong> treated above 10?</p>
+      <ul>
+        <li><button class="quiz-opt"><code>df[df["control_tpm"] &gt; 10 and df["treated_tpm"] &gt; 10]</code></button><span class="why">Python's and doesn't work on whole columns. Use &amp;, with brackets.</span></li>
+        <li data-correct><button class="quiz-opt"><code>df[(df["control_tpm"] &gt; 10) &amp; (df["treated_tpm"] &gt; 10)]</code></button><span class="why">Yes: &amp; between the conditions, and brackets around each one.</span></li>
+        <li><button class="quiz-opt"><code>df[df["control_tpm"] &gt; 10 &amp; df["treated_tpm"] &gt; 10]</code></button><span class="why">Close, but without brackets Python works out 10 &amp; df[...] first, which gives an error.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li><code>import pandas as pd</code>; <code>pd.read_csv(file)</code> reads a table (add <code>sep="\t"</code> for TSV).</li>
+      <li>Look before you analyse: <code>.head()</code>, <code>.shape</code>, <code>.columns</code>, <code>.dtypes</code>.</li>
+      <li><code>df["col"]</code> selects a column (a Series); <code>df[["a", "b"]]</code> selects several.</li>
+      <li>Filter rows with <code>df[condition]</code>; combine conditions with <code>&amp;</code>, <code>|</code> and brackets. Sort with <code>.sort_values()</code>.</li>
+      <li>New columns are calculated for every row at once: <code>df["new"] = df["a"] / df["b"]</code>.</li>
+    </ul>
+  </div>
+  <div class="callout celebrate">
+    <span class="callout-title">🎉 You're doing data science!</span>
+    <p>You just loaded an expression table, filtered it and calculated fold changes, and the p53 response jumped right out of the numbers. That's the first look every RNA-seq analysis starts with.</p>
+  </div>
+</section>
+

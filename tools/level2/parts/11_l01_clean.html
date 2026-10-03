@@ -1,0 +1,443 @@
+<!-- ======================================================================
+     LESSON 1 — WRITING CLEANER CODE
+     ====================================================================== -->
+<section class="lesson" id="cleaner-code" aria-labelledby="cleaner-code-title">
+  <h2 id="cleaner-code-title"><span class="lesson-kicker">Lesson 1</span>Writing cleaner code</h2>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why this matters in bioinformatics</span>
+    <p>Code is read far more often than it's written: by your colleagues, by reviewers checking a paper, and by <em>future you</em>, six months from now, wondering what <code>x2</code> meant. In science, clean code isn't about looking smart. It's about making mistakes easy to spot, so the results can be trusted.</p>
+  </div>
+
+  <h3>Two tiny shortcuts: <code>+=</code> and <code>enumerate()</code></h3>
+  <p>You've written <code>count = count + 1</code> many times. Python has a shorter way to say "add this to what's already there": <code>count += 1</code>. It works for text too.</p>
+
+<script type="text/x-python" class="py-example">
+reads = 1000
+reads += 500            # the same as: reads = reads + 500
+print(reads)
+
+protein = "M"
+protein += "V"          # the same as: protein = protein + "V"
+protein += "HL"
+print(protein)
+</script>
+
+  <p>In Level 1, when you needed each base <em>and</em> its position, you wrote <code>for i in range(len(seq)):</code> and then <code>base = seq[i]</code>. <code>enumerate()</code> hands you both at once. Add <code>start=1</code> to count like a biologist, from 1:</p>
+
+<script type="text/x-python" class="py-example">
+seq = "ATGNCT"
+
+for position, base in enumerate(seq, start=1):
+    if base == "N":
+        print(f"Unknown base at position {position}")
+</script>
+
+  <h3>List comprehensions: build a list in one line</h3>
+  <p>A very common pattern is "start with an empty list, loop, and <code>.append()</code> something each time". A <a class="term" href="#g-comprehension">list comprehension</a> does all of that in one readable line. Here's the codon splitter from Level 1, both ways:</p>
+
+<script type="text/x-python" class="py-example">
+dna = "ATGGTGCATCTGACTCCTGAGGAGAAGTCT"   # HBB, first 30 bases (NM_000518.5)
+
+# Level 1 style: an empty list, a loop and .append()
+codons = []
+for i in range(0, len(dna), 3):
+    codons.append(dna[i:i+3])
+print(codons)
+
+# The same thing as a list comprehension
+codons = [dna[i:i+3] for i in range(0, len(dna), 3)]
+print(codons)
+</script>
+
+  <p>Read it from the middle outwards: <em>"for each <code>i</code> in <code>range(0, len(dna), 3)</code>, take <code>dna[i:i+3]</code>, and collect the results in a list"</em>.</p>
+  <div class="seq-figure">
+<pre aria-label="Anatomy of a list comprehension">
+ [ dna[i:i+3]   for i in range(0, len(dna), 3) ]
+   └── what to   └── the loop, exactly like
+       collect       a normal for line
+</pre>
+  </div>
+
+  <p>You can also add an <code>if</code> at the end to keep only some items. It works like a filter:</p>
+
+<script type="text/x-python" class="py-example">
+reads = ["ATGGTGCAT", "GATTACA", "NNNNACGT", "CCGGCCGG", "ATNGC"]
+
+lengths = [len(read) for read in reads]
+clean_reads = [read for read in reads if "N" not in read]
+gc_rich = [read for read in reads if (read.count("G") + read.count("C")) / len(read) > 0.5]
+
+print("Lengths:    ", lengths)
+print("Without N:  ", clean_reads)
+print("GC-rich:    ", gc_rich)
+</script>
+
+  <h3>Dictionary comprehensions</h3>
+  <p>Curly brackets and a <code>key: value</code> pair give you a <strong>dictionary comprehension</strong>. Remember <code>count_bases()</code> from the warm-up exercise? Here it is in one line:</p>
+
+<script type="text/x-python" class="py-example">
+dna = "ATGGTGCATCTGACTCCTGAGGAGAAGTCT"
+
+counts = {base: dna.count(base) for base in "ACGT"}
+print(counts)
+
+# Turn one dictionary into another: gene -> length becomes gene -> number of codons
+gene_lengths = {"HBB": 444, "INS": 333, "TP53": 1182}
+codon_counts = {gene: length // 3 for gene, length in gene_lengths.items()}
+print(codon_counts)
+</script>
+
+  <div class="callout habit">
+    <span class="callout-title">🧹 Good habit: clever is not the goal, clear is</span>
+    <p>Use a comprehension when it fits comfortably on one line and reads like a sentence. If you need several steps, an <code>if</code>/<code>else</code> or a <code>print()</code> inside, a normal <code>for</code> loop is clearer, and that's perfectly fine. Nobody gives prizes for the shortest code.</p>
+  </div>
+
+  <h3>Meaningful names</h3>
+  <p>Both functions below do exactly the same thing. Which one would you rather find in a colleague's analysis?</p>
+
+<script type="text/x-python" class="py-example">
+def f(x, y):
+    z = []
+    for a in x:
+        if len(a) >= y:
+            z.append(a)
+    return z
+
+
+def keep_long_sequences(sequences, min_length):
+    """Return the sequences that are at least min_length bases long."""
+    return [seq for seq in sequences if len(seq) >= min_length]
+
+
+print(f(["ATG", "ATGGTGCAT"], 5))
+print(keep_long_sequences(["ATG", "ATGGTGCAT"], 5))
+</script>
+
+  <p>Good names say <em>what a value is</em> (<code>sequences</code>, <code>min_length</code>, <code>gc_percent</code>) and good function names say <em>what the function does</em> (<code>keep_long_sequences</code>, <code>read_fasta</code>). Single letters are fine only for tiny, obvious things, such as <code>i</code> for a position in a short loop.</p>
+
+  <h3>Better docstrings</h3>
+  <p>In Level 1 you wrote one-line <a href="index.html#g-docstring">docstrings</a>. For functions other people will use, a slightly longer docstring is a gift: say what goes in, what comes out, and give a tiny example. Python's <code>help()</code> shows a function's docstring, so it doubles as a mini manual:</p>
+
+<script type="text/x-python" class="py-example">
+def gc_content(seq):
+    """Return the GC content of a DNA sequence as a percentage.
+
+    seq: a DNA sequence such as "ATGC" (upper- or lowercase).
+    Returns a number from 0 to 100, e.g. gc_content("ATGC") gives 50.0.
+    """
+    seq = seq.upper()
+    return (seq.count("G") + seq.count("C")) / len(seq) * 100
+
+
+help(gc_content)
+</script>
+
+  <h3>Default arguments</h3>
+  <p>A <a class="term" href="#g-default-argument">default argument</a> is a parameter with a ready-made value. If the caller doesn't give one, the default is used. You've already met one without knowing it: in Biopython's <code>translate(to_stop=True)</code>, <code>to_stop</code> is a parameter whose default is <code>False</code>.</p>
+
+<script type="text/x-python" class="py-example">
+def gc_content(seq, as_percent=True):
+    """Return the GC content of seq: a percentage (default) or a fraction from 0 to 1."""
+    fraction = (seq.count("G") + seq.count("C")) / len(seq)
+    if as_percent:
+        return fraction * 100
+    return fraction
+
+
+print(gc_content("GGCCAT"))                     # as_percent is True by default
+print(gc_content("GGCCAT", as_percent=False))   # a "keyword argument" changes it
+</script>
+
+  <p>Writing <code>as_percent=False</code> in the call, with the parameter's name, is called a <a class="term" href="#g-keyword-argument">keyword argument</a>. It makes calls easy to read: <code>gc_content(seq, False)</code> works too, but what does <code>False</code> mean there? Use simple values for defaults: numbers, text, <code>True</code>/<code>False</code> or <code>None</code>.</p>
+
+  <h3>No "magic numbers": name your thresholds</h3>
+  <p>A <a class="term" href="#g-magic-number">magic number</a> is an unexplained number in the middle of your code, like <code>if len(seq) &gt; 100:</code>. Why 100? Is it the same 100 as on line 80? Give it a name in capitals at the top of your script (you met this convention with <code>CODON_TABLE</code> in Level 1). Capitals mean "a <a class="term" href="#g-constant">constant</a>: set once, never changed":</p>
+
+<script type="text/x-python" class="py-example">
+MIN_LENGTH = 100     # bases: shorter sequences are probably fragments
+MAX_N_FRACTION = 0.05   # at most 5% unknown bases
+
+sequences = {"read1": "ATG" * 40, "read2": "ATGNNN" * 20, "read3": "ATGC" * 10}
+
+for name, seq in sequences.items():
+    n_fraction = seq.count("N") / len(seq)
+    if len(seq) >= MIN_LENGTH and n_fraction <= MAX_N_FRACTION:
+        print(f"{name}: keep")
+    else:
+        print(f"{name}: discard ({len(seq)} bp, {n_fraction:.0%} N)")
+</script>
+
+  <p>Now, if your supervisor says "let's use 150 bases", you change one line, and the reason is written right next to it. (Bonus: <code>:.0%</code> in an f-string shows a fraction as a percentage.)</p>
+
+  <h3>PEP 8: Python's style guide</h3>
+  <p>Python has an official style guide called <a class="term" href="#g-pep8">PEP 8</a>. You don't need to memorise it. Most of it is common sense, and you're already following much of it. The main points:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Do this</th><th>Not this</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><code>gc_percent = 52.3</code></td><td><code>GCPercent=52.3</code></td><td>lowercase_with_underscores for variables and functions; spaces around <code>=</code></td></tr>
+        <tr><td><code>MIN_QUALITY = 20</code></td><td><code>min_quality = 20</code> (for a fixed setting)</td><td>CAPITALS for constants</td></tr>
+        <tr><td><code>print(gene, length)</code></td><td><code>print(gene,length)</code></td><td>a space after each comma</td></tr>
+        <tr><td>4 spaces per indent</td><td>2 spaces, or tabs</td><td>everyone's code lines up the same way</td></tr>
+        <tr><td>two blank lines between functions</td><td>functions squashed together</td><td>easy to see where each one starts</td></tr>
+        <tr><td>lines shorter than about 80 characters</td><td>one 200-character line</td><td>readable without scrolling sideways</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout fact">
+    <span class="callout-title">🤓 Did you know?</span>
+    <p>PEP stands for "Python Enhancement Proposal". PEP 8 was written in 2001, partly by Python's creator, Guido van Rossum. Its key idea: "code is read much more often than it is written". Tools called <em>formatters</em> (such as Black or Ruff) can tidy your code into PEP 8 style automatically.</p>
+  </div>
+
+  <h3>🧪 Project: rewrite a Level 1 program, cleanly</h3>
+  <p>Here's the recap program from Lesson 0, rewritten with everything from this lesson: small functions with docstrings, a named threshold, and comprehensions. It prints the same report, but each part now has one clear job.</p>
+
+<script type="text/x-python" class="py-example">
+GC_RICH_THRESHOLD = 50   # percent
+
+
+def read_fasta(filename):
+    """Read a FASTA file and return a dictionary {id: sequence}."""
+    sequences = {}
+    current_id = None
+    with open(filename) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(">"):
+                current_id = line[1:].split()[0]
+                sequences[current_id] = ""
+            elif line:
+                sequences[current_id] += line
+    return sequences
+
+
+def gc_content(seq):
+    """Return the GC content of a DNA sequence, as a percentage."""
+    return (seq.count("G") + seq.count("C")) / len(seq) * 100
+
+
+sequences = read_fasta("genes.fasta")
+gc_by_id = {seq_id: gc_content(seq) for seq_id, seq in sequences.items()}
+gc_rich_ids = [seq_id for seq_id, gc in gc_by_id.items() if gc > GC_RICH_THRESHOLD]
+
+for seq_id, gc in gc_by_id.items():
+    print(f"{seq_id}: {gc:.1f}% GC")
+print("GC-rich:", gc_rich_ids)
+</script>
+
+  <p>Did you spot <code>elif line:</code>? An empty string counts as <code>False</code> in an <code>if</code>, and any other string counts as <code>True</code>, so <code>if line:</code> means "if the line isn't empty".</p>
+
+  <h3>Exercises</h3>
+  <div class="exercise" id="ex-1-1">
+    <h4><span class="exercise-tag">Exercise 1.1</span><span class="exercise-kind">✍️ Write it</span>Codons with a comprehension</h4>
+    <p>Complete <code>split_codons(seq)</code> so it returns a list of the codons in <code>seq</code> (in frame, starting at index 0), using a <strong>list comprehension</strong> instead of <code>.append()</code>. Ignore any leftover bases that don't make a full codon.</p>
+<script type="text/x-python" class="py-starter">
+def split_codons(seq):
+    """Return the list of complete codons in seq, reading from index 0."""
+    return []   # replace [] with a list comprehension
+
+
+print(split_codons("ATGGCCTAAGG"))   # should be ['ATG', 'GCC', 'TAA']
+</script>
+    <div class="hints">
+      <p>The comprehension looks like the one in the lesson: <code>[seq[i:i+3] for i in range(...)]</code>.</p>
+      <p>To skip an incomplete codon at the end, use <code>range(0, len(seq) - 2, 3)</code>, just like <code>translate()</code> in Level 1.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+def split_codons(seq):
+    """Return the list of complete codons in seq, reading from index 0."""
+    return [seq[i:i+3] for i in range(0, len(seq) - 2, 3)]
+
+
+print(split_codons("ATGGCCTAAGG"))   # should be ['ATG', 'GCC', 'TAA']
+</script>
+<script type="text/x-python" class="py-tests">
+assert "split_codons" in globals(), "I can't find a function called split_codons."
+assert split_codons("ATGGCCTAA") == ["ATG", "GCC", "TAA"], f"split_codons('ATGGCCTAA') should be ['ATG', 'GCC', 'TAA'] but gave {split_codons('ATGGCCTAA')}."
+assert split_codons("ATGGCCTAAGG") == ["ATG", "GCC", "TAA"], f"Leftover bases should be ignored: split_codons('ATGGCCTAAGG') should be ['ATG', 'GCC', 'TAA'] but gave {split_codons('ATGGCCTAAGG')}. Try range(0, len(seq) - 2, 3)."
+assert split_codons("GA") == [], "A sequence shorter than 3 bases has no complete codons, so the result should be []."
+assert split_codons("ATGTGG") == ["ATG", "TGG"], "split_codons('ATGTGG') should be ['ATG', 'TGG']."
+assert ".append(" not in _source, "It works! Now try it as a list comprehension, without .append(): return [... for i in range(...)]"
+</script>
+  </div>
+
+  <div class="exercise" id="ex-1-2">
+    <h4><span class="exercise-tag">Exercise 1.2</span><span class="exercise-kind">✍️ Write it</span>A GC table with a dictionary comprehension</h4>
+    <p>Complete <code>gc_table(sequences)</code>. It receives a dictionary <code>{name: sequence}</code> and should return a new dictionary <code>{name: GC percentage}</code>, using a dictionary comprehension and the <code>gc_content()</code> function provided.</p>
+<script type="text/x-python" class="py-starter">
+def gc_content(seq):
+    """Return the GC content of a DNA sequence, as a percentage."""
+    return (seq.count("G") + seq.count("C")) / len(seq) * 100
+
+
+def gc_table(sequences):
+    """Return a dictionary {name: GC percentage} for a dictionary {name: sequence}."""
+    return {}   # replace {} with a dictionary comprehension
+
+
+genes = {"HBB_start": "ATGGTGCATCTGACTCCTGAGGAGAAGTCT", "INS_start": "ATGGCCCTGTGGATGCGCCTCCTGCCCCTG"}
+print(gc_table(genes))
+</script>
+    <div class="hints">
+      <p>Loop over the pairs with <code>.items()</code>: <code>for name, seq in sequences.items()</code>.</p>
+      <p>The whole thing: <code>return {name: gc_content(seq) for name, seq in sequences.items()}</code></p>
+    </div>
+<script type="text/x-python" class="py-solution">
+def gc_content(seq):
+    """Return the GC content of a DNA sequence, as a percentage."""
+    return (seq.count("G") + seq.count("C")) / len(seq) * 100
+
+
+def gc_table(sequences):
+    """Return a dictionary {name: GC percentage} for a dictionary {name: sequence}."""
+    return {name: gc_content(seq) for name, seq in sequences.items()}
+
+
+genes = {"HBB_start": "ATGGTGCATCTGACTCCTGAGGAGAAGTCT", "INS_start": "ATGGCCCTGTGGATGCGCCTCCTGCCCCTG"}
+print(gc_table(genes))
+</script>
+<script type="text/x-python" class="py-tests">
+assert "gc_table" in globals(), "I can't find a function called gc_table."
+_r = gc_table({"a": "GGCC", "b": "ATAT", "c": "ATGC"})
+assert isinstance(_r, dict), "gc_table() should return a dictionary."
+assert _r != {}, "The dictionary is still empty. Replace {} with a dictionary comprehension."
+assert set(_r) == {"a", "b", "c"}, f"The keys should be the same names as in the input, but I got {list(_r)}."
+assert _r == {"a": 100.0, "b": 0.0, "c": 50.0}, f"For {{'a': 'GGCC', 'b': 'ATAT', 'c': 'ATGC'}} I expected {{'a': 100.0, 'b': 0.0, 'c': 50.0}} but got {_r}."
+assert gc_table({}) == {}, "An empty input dictionary should give an empty result."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-1-3">
+    <h4><span class="exercise-tag">Exercise 1.3</span><span class="exercise-kind">🔮 Predict, then run</span>Which codons survive?</h4>
+    <p><strong>Before you run anything</strong>, read the code and predict what <code>stops</code> will contain. Write your prediction as a Python list in <code>my_prediction</code> (for example <code>["ATG", "GGC"]</code>). Then run it, compare, and press <strong>Check my answer</strong>.</p>
+<script type="text/x-python" class="py-starter">
+my_prediction = None   # replace None with your predicted list
+
+codons = ["ATG", "TAA", "GGC", "TGA", "TAG", "CCC"]
+stops = [codon for codon in codons if codon in ["TAA", "TAG", "TGA"]]
+
+print("You predicted:", my_prediction)
+print("Python says:  ", stops)
+</script>
+    <div class="hints">
+      <p>The comprehension keeps a codon only if it's one of the three stop codons. Go through <code>codons</code> one at a time.</p>
+      <p>Order matters in a list! A comprehension keeps items in the order they appear in <code>codons</code>, not in the order of <code>["TAA", "TAG", "TGA"]</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+my_prediction = ["TAA", "TGA", "TAG"]
+
+codons = ["ATG", "TAA", "GGC", "TGA", "TAG", "CCC"]
+stops = [codon for codon in codons if codon in ["TAA", "TAG", "TGA"]]
+
+print("You predicted:", my_prediction)
+print("Python says:  ", stops)
+</script>
+<script type="text/x-python" class="py-tests">
+assert my_prediction is not None, "Write your prediction in my_prediction first, as a list like [\"TAA\"]."
+assert isinstance(my_prediction, list), "Your prediction should be a list, in square brackets."
+if my_prediction != stops and sorted(map(str, my_prediction)) == sorted(stops):
+    raise AssertionError("You found the right codons, but the order is different. A comprehension keeps the order of the original list.")
+assert my_prediction == stops, f"Not quite: Python gives {stops}. A codon is kept only if it's TAA, TAG or TGA."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-1-4">
+    <h4><span class="exercise-tag challenge">🌶️ Challenge 1.4</span><span class="exercise-kind">🧹 Make it cleaner</span>Tidy up a messy function</h4>
+    <p>The function <code>f</code> below works, but it's hard to read. Replace it with a clean version called <code>keep_long(sequences, min_length=100)</code> that:</p>
+    <ul>
+      <li>returns the sequences that are at least <code>min_length</code> bases long, converted to capitals,</li>
+      <li>has a docstring,</li>
+      <li>uses a list comprehension, and a default value of <code>100</code> for <code>min_length</code>.</li>
+    </ul>
+<script type="text/x-python" class="py-starter">
+def f(s, n):
+    r = []
+    for x in s:
+        if len(x) >= n:
+            r.append(x.upper())
+    return r
+
+
+print(f(["atg" * 50, "ATGC", "gattaca" * 20], 100))
+</script>
+    <div class="hints">
+      <p>Start with the <code>def</code> line: <code>def keep_long(sequences, min_length=100):</code>, then a docstring in triple quotes.</p>
+      <p>The body can be one line: <code>return [seq.upper() for seq in sequences if len(seq) &gt;= min_length]</code>.</p>
+      <p>Don't forget to update the <code>print()</code> line to call <code>keep_long</code> instead of <code>f</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+def keep_long(sequences, min_length=100):
+    """Return the sequences that are at least min_length bases long, in capitals."""
+    return [seq.upper() for seq in sequences if len(seq) >= min_length]
+
+
+print(keep_long(["atg" * 50, "ATGC", "gattaca" * 20]))
+</script>
+<script type="text/x-python" class="py-tests">
+import inspect as _inspect
+assert "keep_long" in globals(), "I can't find a function called keep_long. Rename f and give it clear parameter names."
+_params = _inspect.signature(keep_long).parameters
+assert list(_params) == ["sequences", "min_length"], f"The parameters should be (sequences, min_length=100), but yours are ({', '.join(_params)})."
+assert _params["min_length"].default == 100, "min_length should have a default value of 100: min_length=100."
+assert keep_long.__doc__ and keep_long.__doc__.strip(), "Add a docstring: a short description in triple quotes just under the def line."
+assert keep_long(["atg" * 50, "ATGC"]) == ["ATG" * 50], "keep_long(['atg' * 50, 'ATGC']) should keep only the 150-base sequence, in capitals."
+assert keep_long(["ATGC", "gattaca"], min_length=4) == ["ATGC", "GATTACA"], "With min_length=4, both 'ATGC' and 'gattaca' should be kept (in capitals)."
+assert keep_long([]) == [], "An empty list should give an empty list."
+_body = _source.split("def keep_long", 1)[1].split("\ndef ", 1)[0]
+assert ".append(" not in _body, "It works! Now try a list comprehension instead of .append()."
+</script>
+  </div>
+
+  <div class="quiz">
+    <h3>Quick quiz</h3>
+    <div class="quiz-q">
+      <p>1. What does <code>[len(s) for s in ["ATG", "GATTACA", "CC"]]</code> give?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt"><code>[3, 7, 2]</code></button><span class="why">Right: the comprehension collects len(s) for each string, in order.</span></li>
+        <li><button class="quiz-opt"><code>12</code></button><span class="why">That would be the total length. A list comprehension always gives a list, with one item per input (unless an if filters some out).</span></li>
+        <li><button class="quiz-opt"><code>["ATG", "GATTACA", "CC"]</code></button><span class="why">That's the input list. The comprehension collects len(s), not s itself.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. With <code>def trim(seq, n=3):</code>, what is <code>n</code> when you call <code>trim("ATGCCC")</code>?</p>
+      <ul>
+        <li><button class="quiz-opt">An error, because <code>n</code> is missing</button><span class="why">Parameters with a default value are optional. That's the whole point of defaults.</span></li>
+        <li data-correct><button class="quiz-opt"><code>3</code></button><span class="why">Yes: the caller didn't give n, so the default, 3, is used.</span></li>
+        <li><button class="quiz-opt"><code>None</code></button><span class="why">n has a default of 3, so it's 3, not None.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. Which name follows PEP 8 style for a variable that holds a GC percentage?</p>
+      <ul>
+        <li><button class="quiz-opt"><code>GCPercent</code></button><span class="why">CapitalisedWords are used for something else in Python (classes). Variables use lowercase_with_underscores.</span></li>
+        <li data-correct><button class="quiz-opt"><code>gc_percent</code></button><span class="why">Correct: lowercase words joined with underscores, and it says what the value is.</span></li>
+        <li><button class="quiz-opt"><code>x</code></button><span class="why">Allowed, but x tells the reader nothing. Choose a name that describes the value.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>4. Why write <code>MIN_QUALITY = 20</code> at the top instead of typing <code>20</code> wherever you need it?</p>
+      <ul>
+        <li><button class="quiz-opt">Python runs faster with constants.</button><span class="why">The speed is the same. The benefit is for humans.</span></li>
+        <li data-correct><button class="quiz-opt">The number gets a name and a reason, and you can change it in one place.</button><span class="why">Exactly. No hunting for every 20 in the file, and readers know what it means.</span></li>
+        <li><button class="quiz-opt">Python doesn't allow numbers inside if statements.</button><span class="why">It does. Named constants are about readability, not rules.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li><code>x += 1</code> is short for <code>x = x + 1</code>; <code>enumerate(seq, start=1)</code> gives each item with its position.</li>
+      <li>List comprehension: <code>[expression for item in things if condition]</code>. Dictionary comprehension: <code>{key: value for item in things}</code>.</li>
+      <li>Use clear names, docstrings that say what goes in and comes out, and default arguments for optional settings.</li>
+      <li>Name your thresholds (<code>MIN_LENGTH = 100</code>) instead of hiding magic numbers in the code.</li>
+      <li>PEP 8 is Python's style guide: lowercase_with_underscores, CAPITALS for constants, 4-space indents.</li>
+    </ul>
+  </div>
+  <div class="callout celebrate">
+    <span class="callout-title">🎉 Nice work!</span>
+    <p>You just refactored a working program into a cleaner one, which is exactly what professional bioinformaticians do before sharing their code or publishing a paper.</p>
+  </div>
+</section>
+

@@ -1,0 +1,422 @@
+<!-- ======================================================================
+     LESSON 5 — FASTQ FILES AND QUALITY SCORES
+     ====================================================================== -->
+<section class="lesson" id="fastq" aria-labelledby="fastq-title">
+  <h2 id="fastq-title"><span class="lesson-kicker">Lesson 5</span>FASTQ files and quality scores</h2>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why this matters in bioinformatics</span>
+    <p>A modern sequencing machine reads millions of short DNA fragments in one run, and it isn't equally sure about every base it reports. Along with each base it gives a <strong>quality score</strong>: how confident it is that the base is right. Almost every sequencing analysis starts with <em>quality control</em> (QC): throwing away bad reads and trimming bad ends. Skip this step, and sequencing errors can look like mutations. In bioinformatics, "garbage in, garbage out" is very real.</p>
+  </div>
+
+  <h3>What is a sequencing read?</h3>
+  <p>To sequence DNA, it's first broken into many short fragments. The machine then reads the bases of each fragment, one chemical cycle at a time. Each piece of sequence it reports is called a <a class="term" href="#g-read">read</a>. On the most common machines (made by Illumina), reads are usually 50 to 300 bases long, and one run can produce hundreds of millions of them.</p>
+  <p>Quality usually <strong>drops towards the end of a read</strong>, the 3′ end. Imagine thousands of copies of the same fragment being read together, in a cluster. With every cycle, a few copies fall a step behind or jump a step ahead, so the signal gets blurrier and the machine becomes less sure. That's why trimming the 3′ end of reads is so common.</p>
+
+  <h3>The FASTQ format</h3>
+  <p><a class="term" href="#g-fastq">FASTQ</a> is the standard file format for reads. It's like FASTA with quality scores added. Every read takes exactly <strong>four lines</strong>:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Line</th><th>Starts with</th><th>Contains</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><code>@</code></td><td>the read's ID (first word) and an optional description</td></tr>
+        <tr><td>2</td><td></td><td>the sequence</td></tr>
+        <tr><td>3</td><td><code>+</code></td><td>a separator (sometimes the ID is repeated after it)</td></tr>
+        <tr><td>4</td><td></td><td>the quality string: <strong>one character per base</strong>, so it's exactly as long as the sequence</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Here's this page's small file, <code>reads.fastq</code>. It holds six 40-base reads. <strong>It's made-up teaching data</strong>: the sequences are real pieces of the HBB, INS, TP53 and GAPDH genes, and the quality scores were simulated to behave like real Illumina reads, with quality falling towards the 3′ end and a few poor reads.</p>
+  <p class="file-view-title">reads.fastq</p>
+  <pre class="file-view" data-show-file="reads.fastq"></pre>
+  <p>Those funny symbols on every fourth line are the quality scores. Let's decode them.</p>
+
+  <h3>Phred quality scores</h3>
+  <p>Each quality is a <a class="term" href="#g-phred">Phred score</a>, <em>Q</em>. It's based on the probability <em>P</em> that the base is wrong, on a log10 scale (remember <code>math.log10()</code> from Lesson 3?):</p>
+  <p style="text-align:center"><strong>Q = −10 × log10(P)</strong>, &nbsp; so &nbsp; <strong>P = 10<sup>−Q/10</sup></strong></p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Phred score Q</th><th>Chance the base is wrong</th><th>Accuracy</th></tr></thead>
+      <tbody>
+        <tr><td>10</td><td>1 in 10</td><td>90%</td></tr>
+        <tr><td>20</td><td>1 in 100</td><td>99%</td></tr>
+        <tr><td>30</td><td>1 in 1,000</td><td>99.9%</td></tr>
+        <tr><td>40</td><td>1 in 10,000</td><td>99.99%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Every 10 points means 10 times fewer errors. Q30 is a common benchmark for "good" data, and Q20 is a common minimum.</p>
+
+<script type="text/x-python" class="py-example">
+for q in [10, 20, 30, 40]:
+    error_probability = 10 ** (-q / 10)     # ** means "to the power of"
+    print(f"Q{q}: error probability {error_probability}, accuracy {1 - error_probability:.2%}")
+</script>
+
+  <h3>From characters to numbers: Phred+33</h3>
+  <p>To store each score as a single character, FASTQ uses the <a class="term" href="#g-ascii">ASCII</a> code: every character has a number (<code>A</code> is 65, <code>!</code> is 33). Python's <code>ord()</code> gives a character's number and <code>chr()</code> goes the other way. In the <strong>Phred+33</strong> encoding used by all modern machines:</p>
+  <p style="text-align:center"><strong>Q = ord(character) − 33</strong></p>
+
+<script type="text/x-python" class="py-example">
+for character in "!+5?I":
+    print(f"'{character}'  ASCII {ord(character)}  ->  Q = {ord(character) - 33}")
+
+print("The character for Q30 is", chr(30 + 33))
+</script>
+
+  <div class="callout fact">
+    <span class="callout-title">🤓 Did you know?</span>
+    <p>Why 33? The first 32 ASCII codes are invisible "control" characters, and number 32 is a space. So <code>!</code>, number 33, is the first visible character, and it stands for Q0. Some older Illumina machines used Phred+<strong>64</strong> instead, so the same quality string meant different scores. If your qualities ever come out impossibly high (like Q70), that's a big clue. The name "Phred" comes from a base-calling program written in the 1990s for the Human Genome Project.</p>
+  </div>
+
+  <p>Decoding a whole quality string is a one-line list comprehension:</p>
+
+<script type="text/x-python" class="py-example">
+qual = "DC@DFFDFEEACCCGEEDCCBDABBBAADC?@>@@=@>>?"   # read1 in reads.fastq
+
+scores = [ord(character) - 33 for character in qual]
+print(scores)
+print("First 5 bases:", scores[:5])
+print("Last 5 bases: ", scores[-5:])     # lower at the 3' end, as expected
+</script>
+
+  <h3>Reading FASTQ by hand</h3>
+  <p>Because every read is exactly four lines, we can read the whole file into a list of lines and walk through it in steps of 4. We store each read as a small dictionary. The line <code>header, seq, plus, qual = lines[i:i+4]</code> unpacks four lines into four variables at once.</p>
+
+<script type="text/x-python" class="py-example">
+def read_fastq(filename):
+    """Read a FASTQ file and return a list of reads.
+
+    Each read is a dictionary with the keys "id", "seq" and "qual".
+    """
+    with open(filename) as f:
+        lines = [line.strip() for line in f if line.strip()]
+    reads = []
+    for i in range(0, len(lines), 4):
+        header, seq, plus, qual = lines[i:i+4]
+        if not header.startswith("@") or not plus.startswith("+"):
+            raise ValueError(f"Line {i + 1} doesn't look like the start of a FASTQ record")
+        if len(seq) != len(qual):
+            raise ValueError(f"{header}: sequence and quality have different lengths")
+        reads.append({"id": header[1:].split()[0], "seq": seq, "qual": qual})
+    return reads
+
+
+reads = read_fastq("reads.fastq")
+print("Number of reads:", len(reads))
+print(reads[0]["id"], reads[0]["seq"])
+</script>
+
+  <p>Notice the two <code>raise</code> lines from Lesson 2. FASTQ files do get truncated (for example, by a download that stopped halfway), and a clear error is much better than silently mixing up sequence and quality lines.</p>
+
+  <h3>Average quality per read, and filtering</h3>
+  <p>A simple first QC step is the average (mean) quality of each read. Reads below a threshold are removed. As always, the threshold gets a name:</p>
+
+<script type="text/x-python" class="py-example">
+from statistics import mean
+
+MIN_MEAN_QUALITY = 30   # Phred: keep reads whose average error rate is about 1 in 1000 or better
+
+
+def read_fastq(filename):
+    """Read a FASTQ file and return a list of reads (dictionaries with id, seq and qual)."""
+    with open(filename) as f:
+        lines = [line.strip() for line in f if line.strip()]
+    return [{"id": lines[i][1:].split()[0], "seq": lines[i + 1], "qual": lines[i + 3]}
+            for i in range(0, len(lines), 4)]
+
+
+def mean_quality(qual):
+    """Return the mean Phred score of a Phred+33 quality string."""
+    return mean([ord(character) - 33 for character in qual])
+
+
+kept = 0
+for read in read_fastq("reads.fastq"):
+    quality = mean_quality(read["qual"])
+    if quality >= MIN_MEAN_QUALITY:
+        verdict = "keep"
+        kept += 1
+    else:
+        verdict = "discard"
+    print(f"{read['id']}: mean Q {quality:.1f} -> {verdict}")
+
+print(f"Kept {kept} reads")
+</script>
+
+  <p>(Inside an f-string that uses double quotes, write dictionary keys with single quotes, like <code>read['id']</code>, so Python doesn't think the string has ended.)</p>
+
+  <h3>Trimming the 3′ end, with a <code>while</code> loop</h3>
+  <p>A read can be excellent for 30 bases and poor for the last 10. Rather than throw it all away, we can <a class="term" href="#g-trimming">trim</a> the poor end. The idea: start at the end, and step backwards while the quality is below the threshold.</p>
+  <p>This needs a new kind of loop. A <code>for</code> loop repeats once for each item. A <a class="term" href="#g-while-loop"><code>while</code> loop</a> repeats <strong>as long as a condition is True</strong>, checking it again before every round:</p>
+
+<script type="text/x-python" class="py-example">
+MIN_QUALITY = 20
+
+scores = [38, 37, 36, 35, 33, 31, 25, 19, 22, 14, 11, 8]
+end = len(scores)                       # start just after the last base
+
+while end > 0 and scores[end - 1] < MIN_QUALITY:
+    end -= 1                            # step back one base
+
+print("Keep the first", end, "bases")
+print("Kept scores:", scores[:end])
+</script>
+
+  <p>The loop removes 8, 11 and 14, then stops at 22, which is good enough. The 19 before it stays: we only trim the poor <em>end</em>, because cutting a hole in the middle of a read would join bases that aren't next to each other. The <code>end &gt; 0</code> part stops the loop if the whole read is poor.</p>
+  <div class="callout warn">
+    <span class="callout-title">⚠️ Make sure a <code>while</code> loop can stop</span>
+    <p>If the condition never becomes False, a <code>while</code> loop runs forever. Here, <code>end</code> gets smaller every round, so it must eventually stop. Always check that something inside the loop moves it towards the end.</p>
+  </div>
+
+  <h3>FASTQ with Biopython</h3>
+  <p>Biopython reads FASTQ just like FASTA: change the format name to <code>"fastq"</code>. Each record has a <code>.letter_annotations["phred_quality"]</code> list, already decoded. Best of all, when you slice a record, the qualities are sliced with it. (The first time you run this, the page downloads Biopython, which takes a few seconds.)</p>
+
+<script type="text/x-python" class="py-example">
+from statistics import mean
+from Bio import SeqIO
+
+MIN_QUALITY = 20
+
+for record in SeqIO.parse("reads.fastq", "fastq"):
+    scores = record.letter_annotations["phred_quality"]
+    end = len(scores)
+    while end > 0 and scores[end - 1] < MIN_QUALITY:
+        end -= 1
+    trimmed = record[:end]                     # sequence AND qualities are trimmed
+    print(f"{record.id}: mean Q {mean(scores):.1f}, {len(record)} -> {len(trimmed)} bases")
+
+print()
+print(trimmed.format("fastq"))                 # the last read, written as FASTQ again
+</script>
+
+  <div class="callout habit">
+    <span class="callout-title">🧹 Good habit: check your code against a trusted tool</span>
+    <p>Run the hand-written <code>mean_quality()</code> and Biopython side by side on the same file: they should agree exactly. If they don't, one of them (probably yours!) has a bug. In real projects, tools such as FastQC produce full quality reports, and you'll make your own version in the capstone.</p>
+  </div>
+
+  <h3>Exercises</h3>
+  <div class="exercise" id="ex-5-1">
+    <h4><span class="exercise-tag">Exercise 5.1</span><span class="exercise-kind">✍️ Write it</span>Decode a quality string</h4>
+    <p>Complete <code>decode_quality(qual)</code> so it returns the list of Phred scores for a Phred+33 quality string.</p>
+<script type="text/x-python" class="py-starter">
+def decode_quality(qual):
+    """Return the list of Phred scores for a Phred+33 quality string."""
+    return []
+
+
+print(decode_quality("II5+!"))   # should be [40, 40, 20, 10, 0]
+</script>
+    <div class="hints">
+      <p>Each character's score is <code>ord(character) - 33</code>.</p>
+      <p><code>return [ord(character) - 33 for character in qual]</code></p>
+    </div>
+<script type="text/x-python" class="py-solution">
+def decode_quality(qual):
+    """Return the list of Phred scores for a Phred+33 quality string."""
+    return [ord(character) - 33 for character in qual]
+
+
+print(decode_quality("II5+!"))   # should be [40, 40, 20, 10, 0]
+</script>
+<script type="text/x-python" class="py-tests">
+_r = decode_quality("II5+!")
+assert _r != [73, 73, 53, 43, 33], "Those are the ASCII numbers. Subtract 33 to get the Phred scores."
+assert _r == [40, 40, 20, 10, 0], f"decode_quality('II5+!') should be [40, 40, 20, 10, 0] but gave {_r}."
+assert decode_quality("") == [], "An empty quality string should give an empty list."
+assert decode_quality("?#") == [30, 2], "decode_quality('?#') should be [30, 2]."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-5-2">
+    <h4><span class="exercise-tag">Exercise 5.2</span><span class="exercise-kind">✍️ Write it</span>Which reads pass QC?</h4>
+    <p>Using the functions provided, build a list <code>good_ids</code> with the IDs of the reads in <code>reads.fastq</code> whose mean quality is at least <code>MIN_MEAN_QUALITY</code>. Use the constant, not the number 30, because the check will try a different threshold.</p>
+<script type="text/x-python" class="py-starter">
+from statistics import mean
+
+MIN_MEAN_QUALITY = 30
+
+
+def read_fastq(filename):
+    """Read a FASTQ file and return a list of reads (dictionaries with id, seq and qual)."""
+    with open(filename) as f:
+        lines = [line.strip() for line in f if line.strip()]
+    return [{"id": lines[i][1:].split()[0], "seq": lines[i + 1], "qual": lines[i + 3]}
+            for i in range(0, len(lines), 4)]
+
+
+def mean_quality(qual):
+    """Return the mean Phred score of a Phred+33 quality string."""
+    return mean([ord(character) - 33 for character in qual])
+
+
+good_ids = []
+# fill good_ids here
+
+
+print(good_ids)
+</script>
+    <div class="hints">
+      <p>Loop over <code>read_fastq("reads.fastq")</code>. For each read, compare <code>mean_quality(read["qual"])</code> with <code>MIN_MEAN_QUALITY</code>.</p>
+      <p>As a list comprehension: <code>good_ids = [read["id"] for read in read_fastq("reads.fastq") if mean_quality(read["qual"]) &gt;= MIN_MEAN_QUALITY]</code></p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from statistics import mean
+
+MIN_MEAN_QUALITY = 30
+
+
+def read_fastq(filename):
+    """Read a FASTQ file and return a list of reads (dictionaries with id, seq and qual)."""
+    with open(filename) as f:
+        lines = [line.strip() for line in f if line.strip()]
+    return [{"id": lines[i][1:].split()[0], "seq": lines[i + 1], "qual": lines[i + 3]}
+            for i in range(0, len(lines), 4)]
+
+
+def mean_quality(qual):
+    """Return the mean Phred score of a Phred+33 quality string."""
+    return mean([ord(character) - 33 for character in qual])
+
+
+good_ids = [read["id"] for read in read_fastq("reads.fastq") if mean_quality(read["qual"]) >= MIN_MEAN_QUALITY]
+
+print(good_ids)
+</script>
+<script type="text/x-python" class="py-tests">
+import re as _re
+assert good_ids != [], "good_ids is still empty. Add the ID of every read that passes."
+assert all(not i.startswith("@") for i in good_ids), "The IDs shouldn't include the @."
+assert good_ids == ["read1", "read2", "read4", "read5"], f"With MIN_MEAN_QUALITY = 30, I expected ['read1', 'read2', 'read4', 'read5'] but got {good_ids}."
+_code = _re.sub(r"^MIN_MEAN_QUALITY\s*=.*$", "MIN_MEAN_QUALITY = 18", _source, count=1, flags=_re.M)
+_ns = {}
+exec(_code, _ns)
+assert _ns.get("good_ids") == ["read1", "read2", "read4", "read5", "read6"], f"With MIN_MEAN_QUALITY = 18, five reads should pass, but your code gives {_ns.get('good_ids')}. Are you using the constant rather than the number 30?"
+</script>
+  </div>
+
+  <div class="exercise" id="ex-5-3">
+    <h4><span class="exercise-tag">Exercise 5.3</span><span class="exercise-kind">🔮 Predict, then run</span>What does "5" mean?</h4>
+    <p>A base has the quality character <code>5</code>. <strong>Before running</strong>, predict its Phred score (the ASCII code of <code>5</code> is 53) and the probability that the base is wrong. Write them in <code>my_q</code> and <code>my_error_probability</code> (as a decimal, such as <code>0.5</code>).</p>
+<script type="text/x-python" class="py-starter">
+my_q = None
+my_error_probability = None
+
+q = ord("5") - 33
+error_probability = 10 ** (-q / 10)
+print("Q =", q)
+print("Error probability =", error_probability)
+</script>
+    <div class="hints">
+      <p>Q = 53 − 33.</p>
+      <p>Look at the Phred table above: what's the chance of an error at that Q? Write "1 in 100" as a decimal.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+my_q = 20
+my_error_probability = 0.01
+
+q = ord("5") - 33
+error_probability = 10 ** (-q / 10)
+print("Q =", q)
+print("Error probability =", error_probability)
+</script>
+<script type="text/x-python" class="py-tests">
+assert my_q is not None and my_error_probability is not None, "Write both predictions first."
+assert my_q == 20, f"Q = ord('5') − 33 = 53 − 33 = 20, not {my_q}."
+assert abs(my_error_probability - 0.01) < 1e-9, f"Q20 means a 1 in 100 chance of an error, which is 0.01, not {my_error_probability}."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-5-4">
+    <h4><span class="exercise-tag challenge">🌶️ Challenge 5.4</span><span class="exercise-kind">✍️ Write it</span>A trimming function</h4>
+    <p>Complete <code>trim_end(scores, min_quality=20)</code>. It receives a list of Phred scores and returns <strong>how many bases to keep</strong>: everything up to the last base whose score is at least <code>min_quality</code>. Use a <code>while</code> loop that steps backwards from the end.</p>
+<script type="text/x-python" class="py-starter">
+def trim_end(scores, min_quality=20):
+    """Return how many bases to keep after trimming low-quality bases from the 3' end."""
+    end = len(scores)
+    # step end backwards while the last kept base is below min_quality
+
+    return end
+
+
+print(trim_end([38, 37, 36, 25, 19, 22, 14, 11, 8]))   # should be 6
+</script>
+    <div class="hints">
+      <p>The last kept base is <code>scores[end - 1]</code>.</p>
+      <p><code>while end &gt; 0 and scores[end - 1] &lt; min_quality:</code> and inside, <code>end -= 1</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+def trim_end(scores, min_quality=20):
+    """Return how many bases to keep after trimming low-quality bases from the 3' end."""
+    end = len(scores)
+    while end > 0 and scores[end - 1] < min_quality:
+        end -= 1
+    return end
+
+
+print(trim_end([38, 37, 36, 25, 19, 22, 14, 11, 8]))   # should be 6
+</script>
+<script type="text/x-python" class="py-tests">
+_r = trim_end([38, 37, 36, 25, 19, 22, 14, 11, 8])
+assert _r != 9, "Nothing was trimmed. Step end backwards while scores[end - 1] < min_quality."
+assert _r != 4, "You trimmed too much: stop at the first good base from the end (22). Only the poor END is removed."
+assert _r == 6, f"trim_end([38, 37, 36, 25, 19, 22, 14, 11, 8]) should be 6 but gave {_r}."
+assert trim_end([40, 40, 40]) == 3, "A read with no poor bases should be kept whole."
+assert trim_end([5, 5, 5]) == 0, "A read where every base is poor should give 0 (make sure your loop stops at end > 0)."
+assert trim_end([]) == 0, "An empty list should give 0."
+assert trim_end([30, 25, 28], min_quality=30) == 1, "With min_quality=30, trim_end([30, 25, 28]) should be 1."
+</script>
+  </div>
+
+  <div class="quiz">
+    <h3>Quick quiz</h3>
+    <div class="quiz-q">
+      <p>1. How many lines does one read take in a FASTQ file?</p>
+      <ul>
+        <li><button class="quiz-opt">2, like FASTA</button><span class="why">FASTA has a header and sequence lines. FASTQ adds a + line and a quality line.</span></li>
+        <li data-correct><button class="quiz-opt">4</button><span class="why">Right: @header, sequence, + separator, quality string.</span></li>
+        <li><button class="quiz-opt">It depends on the read length</button><span class="why">In FASTQ files from sequencers, it's always 4 lines per read, however long the read.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. A base has quality Q30. What does that mean?</p>
+      <ul>
+        <li><button class="quiz-opt">There's a 30% chance it's wrong</button><span class="why">Phred is a log scale, not a percentage.</span></li>
+        <li data-correct><button class="quiz-opt">About a 1 in 1000 chance it's wrong</button><span class="why">Correct: P = 10^(−30/10) = 0.001, so 99.9% accuracy.</span></li>
+        <li><button class="quiz-opt">It's the 30th base of the read</button><span class="why">The quality score says how sure the machine is, not where the base is.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. In Phred+33, which character means Q40?</p>
+      <ul>
+        <li><button class="quiz-opt"><code>(</code>, ASCII 40</button><span class="why">You need to add the offset: 40 + 33 = 73.</span></li>
+        <li data-correct><button class="quiz-opt"><code>I</code>, ASCII 73</button><span class="why">Yes: chr(40 + 33) is "I".</span></li>
+        <li><button class="quiz-opt"><code>!</code>, ASCII 33</button><span class="why">"!" means Q0, the lowest possible score.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>4. Why does quality usually drop towards the 3′ end of a read?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt">With every cycle, copies in a cluster drift out of step, so the signal gets blurrier</button><span class="why">Exactly. The later the cycle, the less certain the machine is.</span></li>
+        <li><button class="quiz-opt">The 3′ end of DNA is chemically unstable</button><span class="why">It's about the sequencing process, not the DNA itself.</span></li>
+        <li><button class="quiz-opt">The machine saves its best effort for the start</button><span class="why">It's not a choice: errors simply build up cycle after cycle.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li>A FASTQ record is 4 lines: <code>@</code>ID, sequence, <code>+</code>, and a quality string of the same length.</li>
+      <li>Phred score: Q = −10 × log10(P). Q20 = 1 error in 100, Q30 = 1 in 1000.</li>
+      <li>Phred+33: <code>Q = ord(character) - 33</code>.</li>
+      <li>Basic QC: filter reads by mean quality and trim poor 3′ ends. A <code>while</code> loop repeats while a condition is True.</li>
+      <li><code>SeqIO.parse(file, "fastq")</code> gives records with <code>letter_annotations["phred_quality"]</code>; slicing a record keeps its qualities.</li>
+    </ul>
+  </div>
+  <div class="callout celebrate">
+    <span class="callout-title">🎉 You can do QC!</span>
+    <p>You just decoded quality scores, filtered reads and trimmed their poor ends: the very first step of real sequencing pipelines, done by labs all over the world every day.</p>
+  </div>
+</section>
+

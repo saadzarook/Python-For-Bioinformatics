@@ -1,0 +1,317 @@
+<!-- ======================================================================
+     LESSON 8 — TABLES WITH PANDAS, PART 2
+     ====================================================================== -->
+<section class="lesson" id="pandas-2" aria-labelledby="pandas-2-title">
+  <h2 id="pandas-2-title"><span class="lesson-kicker">Lesson 8</span>Tables with pandas, part 2</h2>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why this matters in bioinformatics</span>
+    <p>Single numbers rarely tell the story. Biologists ask questions about <em>groups</em>: do p53 target genes go up on average? Which pathway changes most? The answers usually need two tables joined together, such as your measurements plus a table that says what each gene does. And real tables have holes in them. This lesson covers all three: summaries, joining tables and missing values.</p>
+  </div>
+
+  <h3>Summary statistics</h3>
+  <p><code>.describe()</code> gives a quick summary of every number column: how many values there are, the mean, the spread and the quartiles. It's a great first look at any new table.</p>
+
+<script type="text/x-python" class="py-example">
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+print(df.describe().round(1))
+print()
+print("Median control TPM:", df["control_tpm"].median())
+</script>
+
+  <p>A few things jump out. <code>count</code> is 14 for <code>treated_tpm</code> but 15 for control: one value is missing. And the mean (about 400) is far above the median (42 and 87), because two very highly expressed genes, GAPDH and ACTB, pull the mean up. Gene expression is almost always like this: a few genes are hugely expressed and most are modest. The median is the more typical value.</p>
+
+  <h3>Missing values</h3>
+  <p>pandas marks missing values as <a class="term" href="#g-nan"><code>NaN</code></a>. Before analysing, find out where they are:</p>
+
+<script type="text/x-python" class="py-example">
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+
+print(df.isna().sum())                 # how many missing values in each column
+print()
+print(df[df["treated_tpm"].isna()])    # which rows have a missing treated value
+</script>
+
+  <p>You then have to decide what to do. The two main options:</p>
+
+<script type="text/x-python" class="py-example">
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+
+complete = df.dropna()                 # 1. drop rows that have any missing value
+print("Rows before:", len(df), " after dropna:", len(complete))
+
+filled = df.fillna({"treated_tpm": 0}) # 2. fill with a value (only if 0 is really true!)
+print(filled[filled["gene"] == "FAS"])
+</script>
+
+  <div class="callout habit">
+    <span class="callout-title">🧹 Good habit: never invent data quietly</span>
+    <p>Filling a missing TPM with 0 says "this gene wasn't expressed", which may be false: maybe the sample failed. Usually it's safer to drop the row, or to keep the <code>NaN</code> (most pandas calculations skip it automatically). Whatever you choose, do it in code and say so in your methods, for example "FAS was excluded because its treated measurement failed".</p>
+  </div>
+
+  <h3>Merging two tables</h3>
+  <p>Our expression table says <em>how much</em> each gene changed. The annotation table, <code>annotation.tsv</code> (also made-up teaching data, built from real gene facts), says <em>what each gene does</em>: its chromosome and its pathway. To ask "which pathways changed?", we need both together. <a class="term" href="#g-merge"><code>merge()</code></a> joins two tables using a column they share, here <code>gene</code>:</p>
+
+<script type="text/x-python" class="py-example">
+import numpy as np
+import pandas as pd
+
+expression = pd.read_csv("expression.csv")
+expression["log2_fc"] = np.log2((expression["treated_tpm"] + 1) / (expression["control_tpm"] + 1))
+annotation = pd.read_csv("annotation.tsv", sep="\t")
+
+merged = expression.merge(annotation, on="gene", how="left")
+print(merged[["gene", "log2_fc", "chromosome", "pathway"]].round(2))
+</script>
+
+  <p>For every gene in the expression table, pandas found the matching row in the annotation table and added its columns. Look at TP53I3: it isn't in the annotation table, so its new columns are <code>NaN</code>. That's what <code>how="left"</code> means: <strong>keep every row of the left table</strong> (the one before <code>.merge</code>), even without a match.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th><code>how=</code></th><th>Keeps</th><th>Here gives</th></tr></thead>
+      <tbody>
+        <tr><td><code>"left"</code></td><td>every row of the left table</td><td>15 genes (TP53I3 with no pathway)</td></tr>
+        <tr><td><code>"inner"</code> (the default)</td><td>only rows found in both tables</td><td>14 genes (TP53I3 silently disappears!)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout tip">
+    <span class="callout-title">💡 What's the <code>...</code> in my table?</span>
+    <p>When a table is too wide to print, pandas hides the middle columns and shows <code>...</code> instead, with a note such as <code>[15 rows x 7 columns]</code>. Nothing is lost: it's only hidden from the printout. Select the columns you want to look at, as in <code>merged[["gene", "pathway"]]</code>.</p>
+  </div>
+  <div class="callout warn">
+    <span class="callout-title">⚠️ Check your row counts after a merge</span>
+    <p>A merge can quietly lose rows (with <code>"inner"</code>) or even multiply them (if a gene appears twice in one table). Always compare <code>len()</code> before and after. Gene names are also a classic trap: <code>TP53</code> and <code>tp53</code>, or an old name versus a new one, won't match.</p>
+  </div>
+
+  <h3>Group and summarise: <code>groupby</code></h3>
+  <p><a class="term" href="#g-groupby"><code>groupby</code></a> splits a table into groups by a column, calculates something for each group, and puts the results back together. "For each pathway, what's the average log2 fold change?" is one line:</p>
+
+<script type="text/x-python" class="py-example">
+import numpy as np
+import pandas as pd
+
+expression = pd.read_csv("expression.csv")
+expression["log2_fc"] = np.log2((expression["treated_tpm"] + 1) / (expression["control_tpm"] + 1))
+annotation = pd.read_csv("annotation.tsv", sep="\t")
+merged = expression.merge(annotation, on="gene", how="left")
+
+print(merged.groupby("pathway")["log2_fc"].mean().round(2))
+print()
+summary = merged.groupby("pathway")["log2_fc"].agg(["count", "mean", "min", "max"])
+print(summary.round(2).sort_values("mean"))
+</script>
+
+  <p>Read the first line as: <em>group <code>merged</code> by <code>pathway</code>, take the <code>log2_fc</code> column, and calculate the mean for each group</em>. <code>.agg()</code> calculates several things at once. The story is clear: p53 pathway genes went up (about 1.9, almost 4 times more), cell-cycle genes went down, and housekeeping genes stayed put.</p>
+  <p>Two details: <code>count</code> for the p53 pathway is 5, not 6, because FAS has no fold change, and <code>count</code> only counts real values. And TP53I3, which has no pathway, isn't in any group. Missing values are left out of groups unless you ask otherwise.</p>
+  <div class="callout fact">
+    <span class="callout-title">🤓 Did you know?</span>
+    <p>TP53 itself barely changed (log2 fold change 0.1), even though it's the gene in charge of this whole response! That's realistic: after DNA damage, cells don't make much more p53 mRNA. Instead, the p53 <em>protein</em> stops being destroyed. Normally MDM2 tags p53 for destruction; DNA damage blocks that. Expression data shows you mRNA levels, which isn't always the whole story.</p>
+  </div>
+
+  <h3>Saving your results</h3>
+  <p><code>.to_csv()</code> writes a DataFrame to a file. Add <code>index=False</code> so the row numbers aren't saved as an extra column, and remember Lesson 6: write to a <strong>new</strong> file, never over the raw data.</p>
+
+<script type="text/x-python" class="py-example">
+import numpy as np
+import pandas as pd
+
+expression = pd.read_csv("expression.csv")
+expression["log2_fc"] = np.log2((expression["treated_tpm"] + 1) / (expression["control_tpm"] + 1))
+annotation = pd.read_csv("annotation.tsv", sep="\t")
+merged = expression.merge(annotation, on="gene", how="left")
+
+merged.round(3).to_csv("expression_annotated.csv", index=False)
+
+check = pd.read_csv("expression_annotated.csv")      # read it back, as always
+print(check.shape)
+print(check[["gene", "log2_fc", "pathway"]].head(3))
+</script>
+
+  <h3>Exercises</h3>
+  <div class="exercise" id="ex-8-1">
+    <h4><span class="exercise-tag">Exercise 8.1</span><span class="exercise-kind">✍️ Write it</span>Join and find the gaps</h4>
+    <p>Merge <code>expression</code> with <code>annotation</code> so that <strong>every</strong> gene of the expression table is kept, and store it in <code>merged</code>. Then store the names of the genes that have no pathway (missing after the merge) in the list <code>unannotated</code>.</p>
+<script type="text/x-python" class="py-starter">
+import pandas as pd
+
+expression = pd.read_csv("expression.csv")
+annotation = pd.read_csv("annotation.tsv", sep="\t")
+
+merged = None
+unannotated = []
+
+print(merged)
+print("No annotation:", unannotated)
+</script>
+    <div class="hints">
+      <p>Keep every row of the left table: <code>merged = expression.merge(annotation, on="gene", how="left")</code></p>
+      <p>Rows where the pathway is missing: <code>merged[merged["pathway"].isna()]</code>. Then take the <code>"gene"</code> column and <code>.tolist()</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import pandas as pd
+
+expression = pd.read_csv("expression.csv")
+annotation = pd.read_csv("annotation.tsv", sep="\t")
+
+merged = expression.merge(annotation, on="gene", how="left")
+unannotated = merged[merged["pathway"].isna()]["gene"].tolist()
+
+print(merged[["gene", "chromosome", "pathway"]])
+print("No annotation:", unannotated)
+</script>
+<script type="text/x-python" class="py-tests">
+import pandas as _pd
+assert isinstance(merged, _pd.DataFrame), "merged should be a DataFrame made with .merge()."
+assert len(merged) != 14, "merged has 14 rows: one gene was dropped. Use how=\"left\" to keep every gene from the expression table."
+assert len(merged) == 15, f"merged should have 15 rows (one per gene in expression.csv), but has {len(merged)}."
+assert "pathway" in merged.columns, "merged should include the annotation columns, such as pathway."
+assert unannotated == ["TP53I3"], f"Only TP53I3 is missing from the annotation table, but unannotated is {unannotated}."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-8-2">
+    <h4><span class="exercise-tag">Exercise 8.2</span><span class="exercise-kind">✍️ Write it</span>Chromosomes with the most genes</h4>
+    <p>Using <code>annotation.tsv</code>, count how many genes there are on each chromosome. Store the result in <code>genes_per_chromosome</code> (a Series from <code>groupby</code>), then store the number of genes on chromosome 11 in <code>n_chr11</code>.</p>
+<script type="text/x-python" class="py-starter">
+import pandas as pd
+
+annotation = pd.read_csv("annotation.tsv", sep="\t")
+
+genes_per_chromosome = None
+n_chr11 = 0
+
+print(genes_per_chromosome)
+print("Genes on chromosome 11:", n_chr11)
+</script>
+    <div class="hints">
+      <p>Group by chromosome and count the genes: <code>annotation.groupby("chromosome")["gene"].count()</code></p>
+      <p>A Series works like a dictionary: <code>genes_per_chromosome[11]</code> gives the value for chromosome 11. (The chromosome column holds numbers, so use 11, not "11".)</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import pandas as pd
+
+annotation = pd.read_csv("annotation.tsv", sep="\t")
+
+genes_per_chromosome = annotation.groupby("chromosome")["gene"].count()
+n_chr11 = genes_per_chromosome[11]
+
+print(genes_per_chromosome)
+print("Genes on chromosome 11:", n_chr11)
+</script>
+<script type="text/x-python" class="py-tests">
+import pandas as _pd
+assert isinstance(genes_per_chromosome, _pd.Series), "genes_per_chromosome should be a Series, made with groupby(...)[...].count()."
+assert len(genes_per_chromosome) == 12, f"The annotation covers 12 different chromosomes, but your result has {len(genes_per_chromosome)} groups. Did you group by chromosome?"
+assert int(genes_per_chromosome[12]) == 2, "Chromosome 12 should have 2 genes (GAPDH and MDM2)."
+assert n_chr11 == 2, f"Chromosome 11 has 2 genes in this table (HBB and INS), but n_chr11 is {n_chr11}."
+</script>
+    <p>Both HBB and INS are on chromosome 11, but in very different neighbourhoods: HBB sits in the beta-globin gene cluster on the short arm (11p15.4), and INS is nearby at 11p15.5.</p>
+  </div>
+
+  <div class="exercise" id="ex-8-3">
+    <h4><span class="exercise-tag challenge">🌶️ Challenge 8.3</span><span class="exercise-kind">🧹 Make it cleaner</span>From loops to <code>groupby</code></h4>
+    <p>This code works out the mean log2 fold change per pathway with dictionaries and loops. It works, but it's long. Replace everything below the <code>merged = ...</code> line with a pandas <code>groupby</code> that stores the same means in a Series called <code>pathway_means</code>.</p>
+<script type="text/x-python" class="py-starter">
+import numpy as np
+import pandas as pd
+
+expression = pd.read_csv("expression.csv")
+expression["log2_fc"] = np.log2((expression["treated_tpm"] + 1) / (expression["control_tpm"] + 1))
+annotation = pd.read_csv("annotation.tsv", sep="\t")
+merged = expression.merge(annotation, on="gene", how="left")
+
+totals = {}
+counts = {}
+for i in range(len(merged)):
+    pathway = merged["pathway"][i]
+    value = merged["log2_fc"][i]
+    if pd.isna(pathway) or pd.isna(value):
+        continue
+    if pathway not in totals:
+        totals[pathway] = 0
+        counts[pathway] = 0
+    totals[pathway] = totals[pathway] + value
+    counts[pathway] = counts[pathway] + 1
+means = {}
+for pathway in totals:
+    means[pathway] = totals[pathway] / counts[pathway]
+print(means)
+</script>
+    <div class="hints">
+      <p>All the loop work above becomes: group <code>merged</code> by <code>"pathway"</code>, take the <code>"log2_fc"</code> column, then <code>.mean()</code>.</p>
+      <p><code>pathway_means = merged.groupby("pathway")["log2_fc"].mean()</code> and then <code>print(pathway_means)</code>. pandas skips missing values for you.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import numpy as np
+import pandas as pd
+
+expression = pd.read_csv("expression.csv")
+expression["log2_fc"] = np.log2((expression["treated_tpm"] + 1) / (expression["control_tpm"] + 1))
+annotation = pd.read_csv("annotation.tsv", sep="\t")
+merged = expression.merge(annotation, on="gene", how="left")
+
+pathway_means = merged.groupby("pathway")["log2_fc"].mean()
+print(pathway_means)
+</script>
+<script type="text/x-python" class="py-tests">
+import pandas as _pd
+assert "pathway_means" in globals(), "Store the result in a variable called pathway_means."
+assert isinstance(pathway_means, _pd.Series), "pathway_means should be a pandas Series, made with groupby(...)[...].mean()."
+_want = {"cell cycle": -1.3277, "housekeeping": -0.0309, "other": 0.0093, "p53 pathway": 1.9099}
+assert set(pathway_means.index) == set(_want), f"There should be one value per pathway: {sorted(_want)}."
+for _k, _v in _want.items():
+    assert abs(pathway_means[_k] - _v) < 0.001, f"The mean for {_k} should be about {_v}, but yours is {pathway_means[_k]:.4f}."
+assert "for i in range" not in _source, "It works! Now delete the old loop code, so only the groupby version is left."
+</script>
+  </div>
+
+  <div class="quiz">
+    <h3>Quick quiz</h3>
+    <div class="quiz-q">
+      <p>1. In <code>.describe()</code>, the mean TPM is about 400 but the median is 42. What does that tell you?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt">A few very large values pull the mean up; most genes are much lower</button><span class="why">Right. Expression data is "skewed", so the median is the more typical value.</span></li>
+        <li><button class="quiz-opt">There's a mistake in the data</button><span class="why">Not necessarily. This is normal for gene expression: a handful of genes are expressed enormously.</span></li>
+        <li><button class="quiz-opt">The mean and median should always be equal</button><span class="why">They're only equal for symmetrical data.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. Table A has 15 genes, table B has 14 of them. How many rows does <code>A.merge(B, on="gene", how="inner")</code> have?</p>
+      <ul>
+        <li><button class="quiz-opt">15</button><span class="why">That would be how="left". "inner" keeps only genes found in both tables.</span></li>
+        <li data-correct><button class="quiz-opt">14</button><span class="why">Yes: only the 14 shared genes. The missing one disappears without any warning, which is why you should check row counts.</span></li>
+        <li><button class="quiz-opt">29</button><span class="why">merge joins rows side by side; it doesn't stack the two tables.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. What does <code>df.groupby("pathway")["log2_fc"].mean()</code> give?</p>
+      <ul>
+        <li><button class="quiz-opt">The mean of all log2 fold changes</button><span class="why">That would be df["log2_fc"].mean(). groupby gives one mean per group.</span></li>
+        <li data-correct><button class="quiz-opt">The mean log2 fold change of each pathway</button><span class="why">Correct: split by pathway, average each group, combine the results.</span></li>
+        <li><button class="quiz-opt">The table sorted by pathway</button><span class="why">That's sort_values("pathway"). groupby summarises groups.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li><code>.describe()</code>, <code>.mean()</code> and <code>.median()</code> summarise columns; the median is more typical for skewed data such as expression.</li>
+      <li>Find missing values with <code>.isna().sum()</code>; handle them on purpose with <code>.dropna()</code> or <code>.fillna()</code>, and say what you did.</li>
+      <li><code>a.merge(b, on="gene", how="left")</code> joins tables; check the row count afterwards.</li>
+      <li><code>df.groupby("col")["value"].mean()</code> summarises each group; <code>.agg([...])</code> does several summaries at once.</li>
+      <li>Save with <code>.to_csv("new_file.csv", index=False)</code>.</li>
+    </ul>
+  </div>
+  <div class="callout celebrate">
+    <span class="callout-title">🎉 You just did a pathway-level analysis!</span>
+    <p>Joining measurements with annotation and summarising by group is how real expression studies go from "thousands of numbers" to "the p53 pathway is switched on". You did it in a handful of lines.</p>
+  </div>
+</section>
+

@@ -1,0 +1,367 @@
+<!-- ======================================================================
+     LESSON 11 — SEQUENCE ALIGNMENT
+     ====================================================================== -->
+<section class="lesson" id="alignment" aria-labelledby="alignment-title">
+  <h2 id="alignment-title"><span class="lesson-kicker">Lesson 11</span>Sequence alignment</h2>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why this matters in bioinformatics</span>
+    <p>Comparing sequences is at the heart of bioinformatics. Is this patient's gene different from the reference? Which gene does this read come from? How closely related are the human and mouse versions of a protein? Answering any of these means lining two sequences up so that matching parts sit on top of each other. That's an <a class="term" href="#g-alignment">alignment</a>. Read mappers, BLAST searches and evolutionary trees are all built on it.</p>
+  </div>
+
+  <h3>The idea: line them up</h3>
+  <p>Imagine writing two sequences on strips of paper and sliding them until as many letters as possible line up. Three things can happen in each column:</p>
+  <div class="seq-figure">
+<pre aria-label="An alignment showing a match, a mismatch and a gap">
+ATGGTGCATCTG
+|||||-||.|||       | = match    . = mismatch    - = gap
+ATGGT-CACCTG
+</pre>
+  </div>
+  <ul>
+    <li>A <strong>match</strong>: the same base in both sequences.</li>
+    <li>A <strong>mismatch</strong>: different bases, for example a point mutation or a sequencing error.</li>
+    <li>A <a class="term" href="#g-gap">gap</a> (<code>-</code>): a base in one sequence has no partner in the other, because a base was inserted in one or deleted from the other. Together these are called <em>indels</em>.</li>
+  </ul>
+
+  <h3>Scoring: how good is an alignment?</h3>
+  <p>To compare different ways of lining sequences up, we give each column points and add them up. A simple <a class="term" href="#g-scoring">scoring</a> scheme:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Column</th><th>Score</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>match</td><td>+1</td><td>evidence the sequences are related</td></tr>
+        <tr><td>mismatch</td><td>−1</td><td>mutations happen, but they cost something</td></tr>
+        <tr><td>gap</td><td>−2</td><td>indels are rarer than point mutations, so they cost more</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The alignment above has 10 matches, 1 mismatch and 1 gap: 10 − 1 − 2 = <strong>7</strong>. Different scoring schemes can give different "best" alignments, so always say which one you used.</p>
+
+  <h3>Global or local?</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Global alignment</th><th>Local alignment</th></tr></thead>
+      <tbody>
+        <tr><td>Aligns…</td><td>both sequences from end to end</td><td>only the best-matching region</td></tr>
+        <tr><td>Use it when…</td><td>the sequences are similar and about the same length: two versions of a gene, normal vs mutant</td><td>a short piece sits inside something longer: a read inside a gene, one shared domain in two proteins</td></tr>
+        <tr><td>Classic method</td><td>Needleman–Wunsch (1970)</td><td>Smith–Waterman (1981)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>You don't need to know how these methods work inside (they're clever, and they're guaranteed to find the best-scoring alignment). Biopython does it for you.</p>
+
+  <h3>Aligning with Biopython: spot the sickle cell mutation</h3>
+  <p><code>PairwiseAligner</code> from <code>Bio.Align</code> is Biopython's aligner. You create one, set its scoring scheme and mode, then call <code>.align()</code>. It can find several equally good alignments, so we take the first, <code>[0]</code>. Let's align the start of normal HBB with the sickle cell version from Level 1:</p>
+
+<script type="text/x-python" class="py-example">
+from Bio.Align import PairwiseAligner
+
+aligner = PairwiseAligner()
+aligner.mode = "global"
+aligner.match_score = 1
+aligner.mismatch_score = -1
+aligner.gap_score = -2
+
+normal = "ATGGTGCATCTGACTCCTGAGGAGAAGTCT"   # HBB, first 30 bases (NM_000518.5)
+sickle = "ATGGTGCATCTGACTCCTGTGGAGAAGTCT"   # sickle cell allele
+
+alignment = aligner.align(normal, sickle)[0]
+print(alignment)
+print("Score:", alignment.score)
+</script>
+
+  <p>In the middle line, <code>|</code> marks a match and <code>.</code> a mismatch. There it is: one mismatch, at base 20, <code>A</code> → <code>T</code>, which turns codon 7 from <code>GAG</code> (glutamic acid) into <code>GTG</code> (valine). The score is 29 matches − 1 mismatch = 28. Biopython calls the first sequence the <em>target</em> and the second the <em>query</em>.</p>
+  <p><code>alignment.counts()</code> counts the columns for you, and <code>alignment[0]</code> and <code>alignment[1]</code> give the two aligned rows as strings, with <code>-</code> for gaps:</p>
+
+<script type="text/x-python" class="py-example">
+from Bio.Align import PairwiseAligner
+
+aligner = PairwiseAligner()
+aligner.match_score = 1
+aligner.mismatch_score = -1
+aligner.gap_score = -2
+
+alignment = aligner.align("ATGGTGCATCTG", "ATGGTCACCTG")[0]
+print(alignment)
+
+counts = alignment.counts()
+print("Identities:", counts.identities)
+print("Mismatches:", counts.mismatches)
+print("Gaps:      ", counts.gaps)
+print("Row 1:", alignment[0])
+print("Row 2:", alignment[1])
+</script>
+
+  <div class="callout fact">
+    <span class="callout-title">🤓 Did you know?</span>
+    <p>Geneticists have an official way to write mutations, called HGVS notation. The sickle cell mutation is written <strong>NM_000518.5:c.20A&gt;T</strong>: in the transcript NM_000518.5, coding base (<code>c.</code>) number 20 changes from A to T. At the protein level it's <strong>p.Glu7Val</strong>, though you'll often see the older name Glu6Val, which doesn't count the first methionine (remember Level 1?).</p>
+  </div>
+
+  <h3>🧪 Project: human versus mouse beta-globin</h3>
+  <p>Humans and mice shared a common ancestor about 75–90 million years ago. How much has beta-globin changed since then? Here are the first 90 bases of the coding sequence from each species:</p>
+
+<script type="text/x-python" class="py-example">
+from Bio.Align import PairwiseAligner
+
+human = "ATGGTGCATCTGACTCCTGAGGAGAAGTCTGCCGTTACTGCCCTGTGGGGCAAGGTGAACGTGGATGAAGTTGGTGGTGAGGCCCTGGGC"  # NM_000518.5
+mouse = "ATGGTGCACCTGACTGATGCTGAGAAGGCTGCTGTCTCTGGCCTGTGGGGAAAGGTGAACGCCGATGAAGTTGGTGGTGAGGCCCTGGGC"  # NM_001201391.1
+
+aligner = PairwiseAligner()
+aligner.mode = "global"
+aligner.match_score = 1
+aligner.mismatch_score = -1
+aligner.gap_score = -2
+
+alignment = aligner.align(human, mouse)[0]
+print(alignment)
+
+counts = alignment.counts()
+alignment_length = counts.identities + counts.mismatches + counts.gaps
+print(f"Score: {alignment.score}")
+print(f"Identity: {counts.identities}/{alignment_length} = {counts.identities / alignment_length:.1%}")
+</script>
+
+  <p>About 86% identical, with no gaps. Now look at <em>where</em> the 13 mismatches fall: 5 of them are in the <strong>third base</strong> of a codon (bases 9, 33, 36, 51 and 63). Across the whole coding sequence the pattern is even clearer: 40 of the 77 differences are in third positions, although only a third of all bases are third bases, and 29 of the 77 don't change the amino acid at all. Thanks to the redundancy of the genetic code, these "silent" changes leave the protein untouched, so evolution lets them pile up. Changes that alter the protein are much more often weeded out.</p>
+  <p>To compare the proteins themselves, align the amino acid sequences. They're 80% identical over all 147 amino acids. For proteins, the scoring uses a <a class="term" href="#g-substitution-matrix">substitution matrix</a> such as BLOSUM62, which gives more points to swaps between chemically similar amino acids, because those happen more often in evolution:</p>
+
+<script type="text/x-python" class="py-example">
+from Bio.Align import PairwiseAligner, substitution_matrices
+
+# Full beta-globin proteins: human NP_000509.1 and mouse (from NM_001201391.1)
+human = "MVHLTPEEKSAVTALWGKVNVDEVGGEALGRLLVVYPWTQRFFESFGDLSTPDAVMGNPKVKAHGKKVLGAFSDGLAHLDNLKGTFATLSELHCDKLHVDPENFRLLGNVLVCVLAHHFGKEFTPPVQAAYQKVVAGVANALAHKYH"
+mouse = "MVHLTDAEKAAVSGLWGKVNADEVGGEALGRLLVVYPWTQRYFDSFGDLSSASAIMGNAKVKAHGKKVITAFNDGLNHLDSLKGTFASLSELHCDKLHVDPENFRLLGNMIVIVLGHHLGKDFTPAAQAAFQKVVAGVAAALAHKYH"
+
+aligner = PairwiseAligner()
+aligner.substitution_matrix = substitution_matrices.load("BLOSUM62")
+aligner.open_gap_score = -10       # starting a gap is expensive...
+aligner.extend_gap_score = -0.5    # ...making it longer is cheaper
+
+alignment = aligner.align(human, mouse)[0]
+counts = alignment.counts()
+print(f"Identical amino acids: {counts.identities} of {len(human)} ({counts.identities / len(human):.1%})")
+print(f"Gaps: {counts.gaps}")
+print(alignment)
+</script>
+
+  <h3>Local alignment: where does this read come from?</h3>
+  <p>Here's a short read, 32 bases, with one sequencing error. Where in the 628-base HBB mRNA does it belong? A global alignment would try to stretch it across the whole mRNA. A <strong>local</strong> alignment just finds the best-matching stretch:</p>
+
+<script type="text/x-python" class="py-example">
+from Bio import SeqIO
+from Bio.Align import PairwiseAligner
+
+mrna = SeqIO.read("hbb.gb", "genbank").seq       # HBB mRNA, NM_000518.5
+read = "GGCTGCTGGTGGTCTACCCATGGACCCAGAGG"         # a made-up read with one error
+
+aligner = PairwiseAligner()
+aligner.mode = "local"
+aligner.match_score = 1
+aligner.mismatch_score = -1
+aligner.gap_score = -2
+
+alignment = aligner.align(mrna, read)[0]
+print(alignment)
+start = alignment.coordinates[0][0]              # where the match starts in the mRNA (from 0)
+print(f"The read matches the mRNA from base {start + 1}, score {alignment.score}")
+</script>
+
+  <p>The read lands at base 142 of the mRNA, inside the coding sequence (51–494), and the single <code>.</code> shows the sequencing error. This is what read mappers do, though they use clever tricks to do it for hundreds of millions of reads against a 3-billion-base genome in a few hours.</p>
+  <div class="callout habit">
+    <span class="callout-title">🧹 Good habit: report your settings</span>
+    <p>An alignment score means nothing without the scoring scheme. When you report one, write down the mode (global or local), the match, mismatch and gap scores (or the substitution matrix), and the Biopython version. Better still, keep them as named settings at the top of your script.</p>
+  </div>
+
+  <h3>Exercises</h3>
+  <div class="exercise" id="ex-11-1">
+    <h4><span class="exercise-tag">Exercise 11.1</span><span class="exercise-kind">✍️ Write it</span>Score an alignment by hand</h4>
+    <p>Complete <code>score_alignment(row1, row2, match=1, mismatch=-1, gap=-2)</code>. It receives the two rows of an alignment (same length, with <code>-</code> for gaps) and returns the total score: <code>gap</code> for any column with a <code>-</code>, <code>match</code> when the two letters are equal, <code>mismatch</code> otherwise.</p>
+<script type="text/x-python" class="py-starter">
+def score_alignment(row1, row2, match=1, mismatch=-1, gap=-2):
+    """Return the score of two aligned rows of equal length ('-' marks a gap)."""
+    score = 0
+    # go through the columns here
+
+    return score
+
+
+print(score_alignment("ATGGTGCATCTG", "ATGGT-CACCTG"))   # should be 7
+</script>
+    <div class="hints">
+      <p>Loop over the column positions: <code>for i in range(len(row1)):</code>, and look at <code>row1[i]</code> and <code>row2[i]</code>.</p>
+      <p>Check for a gap first: <code>if row1[i] == "-" or row2[i] == "-":</code> then <code>score += gap</code>; <code>elif row1[i] == row2[i]:</code> then <code>score += match</code>; <code>else:</code> <code>score += mismatch</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+def score_alignment(row1, row2, match=1, mismatch=-1, gap=-2):
+    """Return the score of two aligned rows of equal length ('-' marks a gap)."""
+    score = 0
+    for i in range(len(row1)):
+        if row1[i] == "-" or row2[i] == "-":
+            score += gap
+        elif row1[i] == row2[i]:
+            score += match
+        else:
+            score += mismatch
+    return score
+
+
+print(score_alignment("ATGGTGCATCTG", "ATGGT-CACCTG"))   # should be 7
+</script>
+<script type="text/x-python" class="py-tests">
+assert score_alignment("ATGGTGCATCTG", "ATGGT-CACCTG") == 7, f"score_alignment('ATGGTGCATCTG', 'ATGGT-CACCTG') should be 7, but gave {score_alignment('ATGGTGCATCTG', 'ATGGT-CACCTG')}."
+assert score_alignment("AAAA", "AAAA") == 4, "Four matches should score 4."
+assert score_alignment("AC", "GT") == -2, "Two mismatches should score -2."
+assert score_alignment("A-C", "AGC") == 0, "A-C vs AGC: match (+1), gap (-2), match (+1) = 0. Check gaps before comparing letters."
+assert score_alignment("A-C", "AGC", gap=-5) == -3, "With gap=-5, A-C vs AGC should score -3. Use the gap parameter, not the number -2."
+assert score_alignment("ACGT", "ACGA", match=2, mismatch=-3) == 3, "With match=2 and mismatch=-3, ACGT vs ACGA should score 3."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-11-2">
+    <h4><span class="exercise-tag">Exercise 11.2</span><span class="exercise-kind">🔮 Predict, then run</span>What will the score be?</h4>
+    <p>With match +1, mismatch −1 and gap −2, <strong>predict</strong> the best global alignment score for <code>GATTACA</code> and <code>GATCACA</code>. Write it in <code>my_score</code>, then run the code to check.</p>
+<script type="text/x-python" class="py-starter">
+from Bio.Align import PairwiseAligner
+
+my_score = None
+
+aligner = PairwiseAligner()
+aligner.match_score = 1
+aligner.mismatch_score = -1
+aligner.gap_score = -2
+
+alignment = aligner.align("GATTACA", "GATCACA")[0]
+print(alignment)
+print("Score:", alignment.score)
+</script>
+    <div class="hints">
+      <p>Both sequences are 7 bases long. Write one above the other: how many columns match?</p>
+      <p>6 matches and 1 mismatch, with no gaps needed: 6 × (+1) + 1 × (−1).</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from Bio.Align import PairwiseAligner
+
+my_score = 5
+
+aligner = PairwiseAligner()
+aligner.match_score = 1
+aligner.mismatch_score = -1
+aligner.gap_score = -2
+
+alignment = aligner.align("GATTACA", "GATCACA")[0]
+print(alignment)
+print("Score:", alignment.score)
+</script>
+<script type="text/x-python" class="py-tests">
+assert my_score is not None, "Write your prediction in my_score first."
+assert my_score == 5, f"6 matches (+6) and 1 mismatch (−1) give 5, not {my_score}. Adding gaps would only cost more."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-11-3">
+    <h4><span class="exercise-tag challenge">🌶️ Challenge 11.3</span><span class="exercise-kind">✍️ Write it</span>Name the mutations</h4>
+    <p>Complete <code>find_substitutions(reference, sample)</code>. It should align the two sequences globally (with the aligner provided), go through the aligned rows, and return a list of the substitutions in the style <code>"20A&gt;T"</code>: the position (counting from 1), the reference base, <code>&gt;</code>, and the sample base. You can assume the alignments have no gaps.</p>
+<script type="text/x-python" class="py-starter">
+from Bio.Align import PairwiseAligner
+
+aligner = PairwiseAligner()
+aligner.match_score = 1
+aligner.mismatch_score = -1
+aligner.gap_score = -2
+
+
+def find_substitutions(reference, sample):
+    """Return substitutions such as '20A>T' between two gap-free aligned sequences."""
+    alignment = aligner.align(reference, sample)[0]
+    row1, row2 = alignment[0], alignment[1]
+    substitutions = []
+    # compare row1 and row2 column by column here
+
+    return substitutions
+
+
+normal = "ATGGTGCATCTGACTCCTGAGGAGAAGTCT"
+sickle = "ATGGTGCATCTGACTCCTGTGGAGAAGTCT"
+print(find_substitutions(normal, sickle))   # should be ['20A>T']
+</script>
+    <div class="hints">
+      <p>Loop over the columns with <code>for i in range(len(row1)):</code>. A substitution is a column where <code>row1[i] != row2[i]</code>.</p>
+      <p>The text for it is <code>f"{i + 1}{row1[i]}&gt;{row2[i]}"</code>; add it with <code>substitutions.append(...)</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from Bio.Align import PairwiseAligner
+
+aligner = PairwiseAligner()
+aligner.match_score = 1
+aligner.mismatch_score = -1
+aligner.gap_score = -2
+
+
+def find_substitutions(reference, sample):
+    """Return substitutions such as '20A>T' between two gap-free aligned sequences."""
+    alignment = aligner.align(reference, sample)[0]
+    row1, row2 = alignment[0], alignment[1]
+    substitutions = []
+    for i in range(len(row1)):
+        if row1[i] != row2[i]:
+            substitutions.append(f"{i + 1}{row1[i]}>{row2[i]}")
+    return substitutions
+
+
+normal = "ATGGTGCATCTGACTCCTGAGGAGAAGTCT"
+sickle = "ATGGTGCATCTGACTCCTGTGGAGAAGTCT"
+print(find_substitutions(normal, sickle))   # should be ['20A>T']
+</script>
+<script type="text/x-python" class="py-tests">
+_r = find_substitutions("ATGGTGCATCTGACTCCTGAGGAGAAGTCT", "ATGGTGCATCTGACTCCTGTGGAGAAGTCT")
+assert _r != [], "No substitutions found yet. Compare row1[i] and row2[i] in a loop."
+assert _r != ["19A>T"], "Close! Positions count from 1 in biology: use i + 1."
+assert _r == ["20A>T"], f"Expected ['20A>T'] but got {_r}."
+assert find_substitutions("ACGTACGT", "ACGTACGT") == [], "Identical sequences have no substitutions."
+assert find_substitutions("ATGGTGCATCTG", "ATGGTGCACCTA") == ["9T>C", "12G>A"], f"For ATGGTGCATCTG vs ATGGTGCACCTA expected ['9T>C', '12G>A'] but got {find_substitutions('ATGGTGCATCTG', 'ATGGTGCACCTA')}."
+</script>
+  </div>
+
+  <div class="quiz">
+    <h3>Quick quiz</h3>
+    <div class="quiz-q">
+      <p>1. You want to find where a 100-base read fits inside a 10,000-base gene. Which mode?</p>
+      <ul>
+        <li><button class="quiz-opt">Global</button><span class="why">Global alignment would try to match the read along the whole gene, adding huge gaps.</span></li>
+        <li data-correct><button class="quiz-opt">Local</button><span class="why">Right: local alignment finds the best-matching region and ignores the rest.</span></li>
+        <li><button class="quiz-opt">Neither: you can't align sequences of different lengths</button><span class="why">You can. Local alignment is made for exactly this.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. With match +1, mismatch −1, gap −2, what is the score of <code>ACG-T</code> over <code>ACGAT</code>?</p>
+      <ul>
+        <li><button class="quiz-opt">5</button><span class="why">The gap column costs −2, it doesn't score +1.</span></li>
+        <li data-correct><button class="quiz-opt">2</button><span class="why">Yes: 4 matches (+4) and 1 gap (−2) = 2.</span></li>
+        <li><button class="quiz-opt">3</button><span class="why">A gap costs −2 here, not −1.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. Many differences between human and mouse beta-globin DNA are in the third base of codons. Why does evolution tolerate those so easily?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt">The genetic code is redundant, so a third-base change often doesn't change the amino acid</button><span class="why">Exactly. Such "silent" changes leave the protein the same, so they're rarely harmful.</span></li>
+        <li><button class="quiz-opt">The ribosome doesn't read the third base</button><span class="why">It does read it: TGG is tryptophan but TGA is a stop! The third base just often doesn't matter, because of redundancy.</span></li>
+        <li><button class="quiz-opt">Mice use a different genetic code</button><span class="why">Mice and humans use the same standard genetic code for nuclear genes.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li>An alignment lines up sequences into columns of matches, mismatches and gaps.</li>
+      <li>A scoring scheme (e.g. +1 / −1 / −2, or BLOSUM62 for proteins) decides which alignment is best. Always report it.</li>
+      <li>Global aligns end to end (similar sequences); local finds the best-matching region (a read in a gene).</li>
+      <li><code>PairwiseAligner</code>: set <code>.mode</code> and the scores, then <code>aligner.align(a, b)[0]</code>; use <code>.score</code>, <code>.counts()</code>, and <code>alignment[0]</code> / <code>alignment[1]</code> for the rows.</li>
+    </ul>
+  </div>
+  <div class="callout celebrate">
+    <span class="callout-title">🎉 You're comparing genomes now!</span>
+    <p>You just spotted a disease mutation in an alignment, measured how far human and mouse globin have drifted apart, and mapped a read to its gene. These are the building blocks of variant calling, evolution studies and every read mapper in use today.</p>
+  </div>
+</section>
+

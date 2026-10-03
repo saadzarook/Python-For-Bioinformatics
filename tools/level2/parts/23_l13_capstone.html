@@ -1,0 +1,413 @@
+<!-- ======================================================================
+     LESSON 13 — CAPSTONE: A MINI ANALYSIS PIPELINE
+     ====================================================================== -->
+<section class="lesson" id="capstone" aria-labelledby="capstone-title">
+  <h2 id="capstone-title"><span class="lesson-kicker">Lesson 13</span>Capstone: a mini analysis pipeline</h2>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why this matters in bioinformatics</span>
+    <p>Every sequencing project starts the same way: raw reads come off the machine, and someone has to check them, filter them, summarise them and report what they found, before any biology can happen. That "someone" usually writes a <a class="term" href="#g-pipeline">pipeline</a>: a script that runs every step, in order, the same way every time. In this capstone, you'll build one from start to finish using almost everything from Level 2.</p>
+  </div>
+
+  <h3>The plan</h3>
+  <div class="seq-figure">
+<pre aria-label="The pipeline: from raw reads to a results table, plots and a summary">
+run42.fastq (raw reads, never changed)
+   │
+   ├─ 1. measure every read      (Biopython, functions)       → length, mean quality, GC%, N count
+   ├─ 2. quality control         (named thresholds)            → passed / failed
+   ├─ 3. build a table           (pandas)                      → run42_read_stats.csv
+   ├─ 4. keep the good reads     (SeqIO.write)                 → run42_passed.fastq
+   ├─ 5. plot                    (matplotlib)                  → quality and GC distributions
+   └─ 6. summarise               (f-strings, files)            → run42_summary.txt
+</pre>
+  </div>
+  <p>The data is <code>run42.fastq</code> from Lesson 9: 40 reads of 75 bases, <strong>made-up teaching data</strong> built from real human gene sequences with simulated, realistic quality scores.</p>
+  <p>One new tool: <code>SeqIO.write(records, filename, "fastq")</code> writes a list of SeqRecords to a file. It's the partner of <code>SeqIO.parse()</code>, and it works for FASTA too.</p>
+
+  <div class="callout habit">
+    <span class="callout-title">🧹 Good habits you'll see in this pipeline</span>
+    <ul>
+      <li>All settings and file names are <strong>named constants at the top</strong>, so anyone can see and change them in one place.</li>
+      <li><strong>Small functions with docstrings</strong>, each doing one job.</li>
+      <li>The functions are <strong>tested on tiny examples</strong> with <code>assert</code> before they touch the real data.</li>
+      <li>The raw file is only read; every result goes to a <strong>new file</strong>.</li>
+      <li>The software <strong>versions are printed</strong> with the results, for reproducibility.</li>
+    </ul>
+  </div>
+
+  <h3>🧪 Capstone</h3>
+  <div class="exercise" id="ex-13-1">
+    <h4><span class="exercise-tag">Capstone</span><span class="exercise-kind">✍️ Write it</span>Quality control for run42</h4>
+    <p>Complete the two functions, then run the whole pipeline:</p>
+    <ul>
+      <li><code>read_stats(record)</code> receives one Biopython FASTQ record and returns a dictionary with the keys <code>"read_id"</code>, <code>"length"</code>, <code>"mean_quality"</code>, <code>"gc_percent"</code> and <code>"n_count"</code> (the number of <code>N</code> bases).</li>
+      <li><code>passes_qc(stats, min_mean_quality, max_n_bases)</code> returns <code>True</code> if the read's mean quality is at least <code>min_mean_quality</code> <strong>and</strong> it has no more than <code>max_n_bases</code> N bases.</li>
+    </ul>
+    <p>The tiny tests in the middle of the program check your functions before the real data is touched; if one fails, its message tells you what to fix. Everything after the tests is already written. <strong>Check my answer</strong> runs the whole pipeline and checks every output file. When it all works, replace the <code>MY_CONCLUSION</code> text with a sentence or two of your own about what the results mean.</p>
+<script type="text/x-python" class="py-starter">
+from statistics import mean
+import Bio
+import matplotlib
+import matplotlib.pyplot as plt
+import pandas as pd
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+
+# ---- Settings: every file name and threshold in one place ----
+RAW_READS = "run42.fastq"                # raw data: read only, never changed
+STATS_TABLE = "run42_read_stats.csv"     # all results go to NEW files
+PASSED_READS = "run42_passed.fastq"
+SUMMARY_FILE = "run42_summary.txt"
+MIN_MEAN_QUALITY = 25    # Phred: falls in the gap between the two humps of Lesson 9's histogram
+MAX_N_BASES = 0          # reads with any unknown base are removed
+MY_CONCLUSION = "Write your own conclusion here."
+
+
+def read_stats(record):
+    """Return a dictionary of statistics for one FASTQ record.
+
+    Keys: read_id, length, mean_quality, gc_percent, n_count.
+    """
+    seq = str(record.seq)
+    scores = record.letter_annotations["phred_quality"]
+    return {}   # fill in the five keys
+
+
+def passes_qc(stats, min_mean_quality=MIN_MEAN_QUALITY, max_n_bases=MAX_N_BASES):
+    """Return True if a read's statistics pass quality control."""
+    return False
+
+
+# ---- Test the functions on tiny examples first ----
+test_read = SeqRecord(Seq("GGCCAN"), id="test", letter_annotations={"phred_quality": [30, 30, 30, 30, 20, 10]})
+test_stats = read_stats(test_read)
+assert test_stats.get("read_id") == "test", "read_stats: read_id should be record.id"
+assert test_stats.get("length") == 6, "read_stats: length should be len(record)"
+assert test_stats.get("mean_quality") == 25, "read_stats: mean_quality should be the mean of the Phred scores"
+assert round(test_stats.get("gc_percent", 0), 2) == 66.67, "read_stats: gc_percent should be (G + C) / length * 100"
+assert test_stats.get("n_count") == 1, "read_stats: n_count should count the N bases"
+assert passes_qc({"mean_quality": 30, "n_count": 0}) is True, "passes_qc: a read with Q30 and no N should pass"
+assert passes_qc({"mean_quality": 25, "n_count": 0}) is True, "passes_qc: a read exactly at the threshold (25) should pass"
+assert passes_qc({"mean_quality": 18, "n_count": 0}) is False, "passes_qc: a read with Q18 should fail"
+assert passes_qc({"mean_quality": 35, "n_count": 1}) is False, "passes_qc: a read with an N should fail when max_n_bases is 0"
+print("✅ Function tests passed\n")
+
+# ---- 1-2. Measure every read and apply quality control ----
+records = list(SeqIO.parse(RAW_READS, "fastq"))
+all_stats = [read_stats(record) for record in records]
+for stats in all_stats:
+    stats["passed_qc"] = passes_qc(stats)
+
+# ---- 3. Build the results table and save it ----
+table = pd.DataFrame(all_stats)
+table.round(2).to_csv(STATS_TABLE, index=False)
+passed = table[table["passed_qc"]]
+failed = table[~table["passed_qc"]]
+
+# ---- 4. Keep the good reads in a new FASTQ file ----
+passed_ids = passed["read_id"].tolist()
+passed_records = [record for record in records if record.id in passed_ids]
+SeqIO.write(passed_records, PASSED_READS, "fastq")
+
+# ---- 5. Plots ----
+plt.figure(figsize=(9, 3.6))
+plt.subplot(1, 2, 1)
+plt.hist(table["mean_quality"], bins=15)
+plt.axvline(MIN_MEAN_QUALITY, color="C1", linestyle="--", label=f"threshold (Q{MIN_MEAN_QUALITY})")
+plt.xlabel("Mean Phred quality of the read")
+plt.ylabel("Number of reads")
+plt.title(f"Read quality (n = {len(table)})")
+plt.legend()
+plt.subplot(1, 2, 2)
+plt.hist(passed["gc_percent"], bins=10)
+plt.xlabel("GC content (%)")
+plt.ylabel("Number of reads")
+plt.title(f"GC content of passed reads (n = {len(passed)})")
+plt.tight_layout()
+plt.show()
+
+scores = pd.DataFrame([record.letter_annotations["phred_quality"] for record in passed_records])
+positions = range(1, scores.shape[1] + 1)
+plt.figure(figsize=(7, 3.6))
+plt.plot(positions, scores.mean(), label="mean of passed reads")
+plt.axhline(30, color="C2", linestyle=":", label="Q30")
+plt.ylim(0, 41)
+plt.xlabel("Position in read (bases)")
+plt.ylabel("Mean Phred quality score")
+plt.title("Quality by position, passed reads")
+plt.legend()
+plt.show()
+
+# ---- 6. Summary: print it and save it ----
+summary = [
+    "QC summary for run42 (made-up teaching data)",
+    f"Software: Biopython {Bio.__version__}, pandas {pd.__version__}, matplotlib {matplotlib.__version__}",
+    f"Settings: MIN_MEAN_QUALITY = {MIN_MEAN_QUALITY}, MAX_N_BASES = {MAX_N_BASES}",
+    f"Reads in: {len(table)}",
+    f"Reads passed: {len(passed)} ({len(passed) / len(table):.0%})",
+    f"Mean quality: passed {passed['mean_quality'].mean():.1f}, failed {failed['mean_quality'].mean():.1f}",
+    f"Median GC content of passed reads: {passed['gc_percent'].median():.1f}%",
+    f"Conclusion: {MY_CONCLUSION}",
+]
+with open(SUMMARY_FILE, "w") as f:
+    f.write("\n".join(summary) + "\n")
+print("\n".join(summary))
+print(f"\nWrote {STATS_TABLE}, {PASSED_READS} and {SUMMARY_FILE}")
+</script>
+    <div class="hints">
+      <p><code>read_stats</code>: the five values are <code>record.id</code>, <code>len(seq)</code>, <code>mean(scores)</code>, <code>(seq.count("G") + seq.count("C")) / len(seq) * 100</code> and <code>seq.count("N")</code>. Put them in a dictionary with the right keys.</p>
+      <p><code>passes_qc</code>: one line does it: <code>return stats["mean_quality"] &gt;= min_mean_quality and stats["n_count"] &lt;= max_n_bases</code>. Use the parameters, not the constants, inside the function.</p>
+      <p>If a test fails, its message names the function and the key. Fix one thing at a time and run again: that's exactly how pipelines get built.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from statistics import mean
+import Bio
+import matplotlib
+import matplotlib.pyplot as plt
+import pandas as pd
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+
+# ---- Settings: every file name and threshold in one place ----
+RAW_READS = "run42.fastq"                # raw data: read only, never changed
+STATS_TABLE = "run42_read_stats.csv"     # all results go to NEW files
+PASSED_READS = "run42_passed.fastq"
+SUMMARY_FILE = "run42_summary.txt"
+MIN_MEAN_QUALITY = 25    # Phred: falls in the gap between the two humps of Lesson 9's histogram
+MAX_N_BASES = 0          # reads with any unknown base are removed
+MY_CONCLUSION = "80% of reads passed QC; the failed reads were poor along their whole length, not just at the end, so removing them was the right call."
+
+
+def read_stats(record):
+    """Return a dictionary of statistics for one FASTQ record.
+
+    Keys: read_id, length, mean_quality, gc_percent, n_count.
+    """
+    seq = str(record.seq)
+    scores = record.letter_annotations["phred_quality"]
+    return {
+        "read_id": record.id,
+        "length": len(seq),
+        "mean_quality": mean(scores),
+        "gc_percent": (seq.count("G") + seq.count("C")) / len(seq) * 100,
+        "n_count": seq.count("N"),
+    }
+
+
+def passes_qc(stats, min_mean_quality=MIN_MEAN_QUALITY, max_n_bases=MAX_N_BASES):
+    """Return True if a read's statistics pass quality control."""
+    return stats["mean_quality"] >= min_mean_quality and stats["n_count"] <= max_n_bases
+
+
+# ---- Test the functions on tiny examples first ----
+test_read = SeqRecord(Seq("GGCCAN"), id="test", letter_annotations={"phred_quality": [30, 30, 30, 30, 20, 10]})
+test_stats = read_stats(test_read)
+assert test_stats.get("read_id") == "test", "read_stats: read_id should be record.id"
+assert test_stats.get("length") == 6, "read_stats: length should be len(record)"
+assert test_stats.get("mean_quality") == 25, "read_stats: mean_quality should be the mean of the Phred scores"
+assert round(test_stats.get("gc_percent", 0), 2) == 66.67, "read_stats: gc_percent should be (G + C) / length * 100"
+assert test_stats.get("n_count") == 1, "read_stats: n_count should count the N bases"
+assert passes_qc({"mean_quality": 30, "n_count": 0}) is True, "passes_qc: a read with Q30 and no N should pass"
+assert passes_qc({"mean_quality": 25, "n_count": 0}) is True, "passes_qc: a read exactly at the threshold (25) should pass"
+assert passes_qc({"mean_quality": 18, "n_count": 0}) is False, "passes_qc: a read with Q18 should fail"
+assert passes_qc({"mean_quality": 35, "n_count": 1}) is False, "passes_qc: a read with an N should fail when max_n_bases is 0"
+print("✅ Function tests passed\n")
+
+# ---- 1-2. Measure every read and apply quality control ----
+records = list(SeqIO.parse(RAW_READS, "fastq"))
+all_stats = [read_stats(record) for record in records]
+for stats in all_stats:
+    stats["passed_qc"] = passes_qc(stats)
+
+# ---- 3. Build the results table and save it ----
+table = pd.DataFrame(all_stats)
+table.round(2).to_csv(STATS_TABLE, index=False)
+passed = table[table["passed_qc"]]
+failed = table[~table["passed_qc"]]
+
+# ---- 4. Keep the good reads in a new FASTQ file ----
+passed_ids = passed["read_id"].tolist()
+passed_records = [record for record in records if record.id in passed_ids]
+SeqIO.write(passed_records, PASSED_READS, "fastq")
+
+# ---- 5. Plots ----
+plt.figure(figsize=(9, 3.6))
+plt.subplot(1, 2, 1)
+plt.hist(table["mean_quality"], bins=15)
+plt.axvline(MIN_MEAN_QUALITY, color="C1", linestyle="--", label=f"threshold (Q{MIN_MEAN_QUALITY})")
+plt.xlabel("Mean Phred quality of the read")
+plt.ylabel("Number of reads")
+plt.title(f"Read quality (n = {len(table)})")
+plt.legend()
+plt.subplot(1, 2, 2)
+plt.hist(passed["gc_percent"], bins=10)
+plt.xlabel("GC content (%)")
+plt.ylabel("Number of reads")
+plt.title(f"GC content of passed reads (n = {len(passed)})")
+plt.tight_layout()
+plt.show()
+
+scores = pd.DataFrame([record.letter_annotations["phred_quality"] for record in passed_records])
+positions = range(1, scores.shape[1] + 1)
+plt.figure(figsize=(7, 3.6))
+plt.plot(positions, scores.mean(), label="mean of passed reads")
+plt.axhline(30, color="C2", linestyle=":", label="Q30")
+plt.ylim(0, 41)
+plt.xlabel("Position in read (bases)")
+plt.ylabel("Mean Phred quality score")
+plt.title("Quality by position, passed reads")
+plt.legend()
+plt.show()
+
+# ---- 6. Summary: print it and save it ----
+summary = [
+    "QC summary for run42 (made-up teaching data)",
+    f"Software: Biopython {Bio.__version__}, pandas {pd.__version__}, matplotlib {matplotlib.__version__}",
+    f"Settings: MIN_MEAN_QUALITY = {MIN_MEAN_QUALITY}, MAX_N_BASES = {MAX_N_BASES}",
+    f"Reads in: {len(table)}",
+    f"Reads passed: {len(passed)} ({len(passed) / len(table):.0%})",
+    f"Mean quality: passed {passed['mean_quality'].mean():.1f}, failed {failed['mean_quality'].mean():.1f}",
+    f"Median GC content of passed reads: {passed['gc_percent'].median():.1f}%",
+    f"Conclusion: {MY_CONCLUSION}",
+]
+with open(SUMMARY_FILE, "w") as f:
+    f.write("\n".join(summary) + "\n")
+print("\n".join(summary))
+print(f"\nWrote {STATS_TABLE}, {PASSED_READS} and {SUMMARY_FILE}")
+</script>
+<script type="text/x-python" class="py-tests">
+import os as _os
+import pandas as _pd
+import matplotlib.pyplot as _plt
+from Bio import SeqIO as _SeqIO
+from Bio.Seq import Seq as _Seq
+from Bio.SeqRecord import SeqRecord as _Rec
+
+_r = read_stats(_Rec(_Seq("ATNNGC"), id="x2", letter_annotations={"phred_quality": [40, 40, 2, 2, 20, 30]}))
+assert _r == {"read_id": "x2", "length": 6, "mean_quality": 134 / 6, "gc_percent": 2 / 6 * 100, "n_count": 2} or (
+    _r.get("read_id") == "x2" and _r.get("length") == 6 and abs(_r.get("mean_quality", 0) - 134 / 6) < 1e-9
+    and abs(_r.get("gc_percent", 0) - 200 / 6) < 1e-9 and _r.get("n_count") == 2), f"read_stats() gives the wrong values for another test read: {_r}"
+assert passes_qc({"mean_quality": 21, "n_count": 0}, min_mean_quality=20) is True, "passes_qc should use its min_mean_quality parameter, not the constant."
+assert passes_qc({"mean_quality": 30, "n_count": 2}, max_n_bases=2) is True, "passes_qc should use its max_n_bases parameter, not the constant."
+
+for _name in [STATS_TABLE, PASSED_READS, SUMMARY_FILE]:
+    if _os.path.exists(_name):
+        _os.remove(_name)                      # start fresh: old files from earlier runs don't count
+_before = set(_plt.get_fignums())
+exec(_source, {"__name__": "__main__"})
+for _n in set(_plt.get_fignums()) - _before:
+    _plt.close(_n)                             # don't show the plots twice
+
+assert _os.path.exists(STATS_TABLE), f"{STATS_TABLE} wasn't written."
+_t = _pd.read_csv(STATS_TABLE)
+assert len(_t) == 40, f"The stats table should have one row per read (40), but has {len(_t)}."
+assert set(["read_id", "length", "mean_quality", "gc_percent", "n_count", "passed_qc"]) <= set(_t.columns), f"The stats table is missing columns. It has: {list(_t.columns)}"
+assert int(_t["passed_qc"].sum()) == 32, f"With MIN_MEAN_QUALITY = 25 and MAX_N_BASES = 0, 32 reads should pass, but your table says {int(_t['passed_qc'].sum())}."
+assert len(list(_SeqIO.parse(PASSED_READS, "fastq"))) == 32, f"{PASSED_READS} should contain the 32 reads that passed."
+assert len(list(_SeqIO.parse(RAW_READS, "fastq"))) == 40, "The raw FASTQ file should still have all 40 reads: never write to raw data!"
+with open(SUMMARY_FILE) as _f:
+    _summary = _f.read()
+assert "Reads passed: 32 (80%)" in _summary, "The summary file should report 'Reads passed: 32 (80%)'."
+assert MY_CONCLUSION.strip() and MY_CONCLUSION != "Write your own conclusion here.", "Everything works! 🎉 Last step: replace MY_CONCLUSION with a sentence or two of your own about what the results mean."
+</script>
+  </div>
+
+  <h3>What we found</h3>
+  <p>When your pipeline runs, you should see this (your conclusion will be your own):</p>
+  <ul>
+    <li><strong>32 of 40 reads (80%) passed QC.</strong> The failed reads averaged about Q19 against Q33 for the passed reads, and the two reads with an unknown base (<code>N</code>) were among the failed ones.</li>
+    <li><strong>The read-quality histogram has two clear humps</strong>, and the threshold of Q25 sits in the gap between them. Choosing a threshold by looking at the data, and then writing down why, is exactly what analysts do.</li>
+    <li><strong>The GC content of the passed reads</strong> clusters around 50–60% (median 52.7%), as expected for human coding sequences such as HBB and INS. No second hump, so no sign of contamination.</li>
+    <li><strong>Even the passed reads lose quality towards their 3′ end</strong>, from about Q35 down to about Q26. A next step could be trimming their 3′ ends, using the <code>trim_end()</code> function from Lesson 5.</li>
+  </ul>
+  <p>A short written summary like this, saved next to the numbers and plots, is what turns a script's output into a result a colleague can use. You've just done the full job: <strong>read → check → filter → summarise → plot → report</strong>. That's what real bioinformatics pipelines do, on hundreds of millions of reads at a time. 🎉</p>
+
+  <div class="callout fact">
+    <span class="callout-title">🤓 Did you know?</span>
+    <p>Real projects use exactly these steps, with industrial-strength tools: FastQC and MultiQC for the quality reports, fastp or Trimmomatic for filtering and trimming, and workflow managers such as Snakemake or Nextflow to run every step for hundreds of samples. Under the hood, they're doing what your pipeline does.</p>
+  </div>
+
+  <div class="quiz">
+    <h3>Quick quiz</h3>
+    <div class="quiz-q">
+      <p>1. Why does the pipeline test <code>read_stats()</code> on a 6-base read before running on the real file?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt">So bugs show up on a tiny example where we know the right answer, before they can affect real results</button><span class="why">Exactly. It's much easier to check 6 bases by hand than 40 reads of 75 bases.</span></li>
+        <li><button class="quiz-opt">Because Biopython needs a warm-up</button><span class="why">Biopython doesn't need a warm-up. The tests are for our own code.</span></li>
+        <li><button class="quiz-opt">To make the program run faster</button><span class="why">Tests add a tiny bit of time; their value is catching mistakes.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. Your supervisor asks you to rerun the analysis with a threshold of Q28. What do you change?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt">One line: <code>MIN_MEAN_QUALITY = 28</code></button><span class="why">Yes: that's the payoff of named constants. Everything else, including the summary, updates automatically.</span></li>
+        <li><button class="quiz-opt">Every line that mentions 25</button><span class="why">With a named constant, there's only one place to change.</span></li>
+        <li><button class="quiz-opt">Edit run42.fastq by hand</button><span class="why">Never edit raw data. Change the setting and rerun the code.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. Why does the summary file include the software versions and settings?</p>
+      <ul>
+        <li><button class="quiz-opt">To make the file look more professional</button><span class="why">It's not decoration: it's what makes the result repeatable.</span></li>
+        <li data-correct><button class="quiz-opt">So anyone (including future you) can reproduce exactly how the results were made</button><span class="why">Right. Different versions or thresholds can give different numbers.</span></li>
+        <li><button class="quiz-opt">Because pandas requires it</button><span class="why">Nothing requires it. It's a reproducibility habit.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li>A pipeline runs every step in order, the same way every time: <strong>read → check → filter → summarise → plot → report</strong>.</li>
+      <li>Settings at the top, small tested functions, raw data untouched, results in new files, versions recorded.</li>
+      <li><code>SeqIO.write(records, filename, "fastq")</code> saves SeqRecords to a file.</li>
+      <li>Results aren't finished until they're summarised in words someone else can understand.</li>
+    </ul>
+  </div>
+
+  <h2>🎓 You've finished Level 2!</h2>
+  <p>Take a moment: that's a lot. You started this level writing tidier loops, and you've just built a full QC pipeline. Along the way you handled errors, found motifs with regex, decoded quality scores, analysed an expression table with pandas, drew honest plots, read GenBank files, found genes in six frames, aligned human and mouse globin and downloaded data from NCBI. If some lessons felt hard, good: that's what learning feels like. Every exercise you struggled with taught you more than the ones that were easy.</p>
+
+  <h3>What you've learned</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Lesson</th><th>Python skill</th><th>Biology use</th></tr></thead>
+      <tbody>
+        <tr><td>1–2</td><td>Comprehensions, clean functions, try/except, raise, assert</td><td>Validating sequences, failing loudly on bad data</td></tr>
+        <tr><td>3–4</td><td>Standard library, Counter, random seeds, regex</td><td>k-mers, restriction sites, poly-A signals, ORFs</td></tr>
+        <tr><td>5–6</td><td><code>ord()</code>, <code>while</code>, writing files, <code>csv</code></td><td>FASTQ quality control, filtered FASTA, results tables</td></tr>
+        <tr><td>7–9</td><td>pandas, merge, groupby, matplotlib</td><td>Expression analysis, QC and expression plots</td></tr>
+        <tr><td>10–12</td><td>SeqRecord, GenBank, PairwiseAligner, E-utilities</td><td>Annotations, six-frame ORFs, mutations, downloading data</td></tr>
+        <tr><td>13</td><td>A complete pipeline</td><td>From raw reads to a report</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>What's next?</h3>
+  <div class="coming-soon-grid">
+    <div class="card">
+      <h4>Level 3 · Advanced <span class="badge">Coming soon</span></h4>
+      <ul>
+        <li>Searching databases with BLAST</li>
+        <li>Variants and VCF files: from alignment to mutation calls</li>
+        <li>Genome annotation formats (GFF) and working with whole genomes</li>
+        <li>Statistics for gene expression: is a change real?</li>
+        <li>Command-line tools, testing with pytest, and workflow managers</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Until then</h4>
+      <ul>
+        <li>Set up Python on your own computer (Lesson 3) and run your capstone there.</li>
+        <li>Download a gene you care about from NCBI and run the Lesson 10 tools on it.</li>
+        <li>Change the capstone: add 3′ trimming, or try another threshold.</li>
+        <li>Revisit <a href="index.html">Level 1</a> any time you need a refresher.</li>
+      </ul>
+    </div>
+  </div>
+  <p>Playing with code is how programming sticks. Break things, read the errors, fix them. You know how now.</p>
+</section>
+

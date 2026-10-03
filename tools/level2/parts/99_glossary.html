@@ -1,0 +1,138 @@
+<!-- ======================================================================
+     GLOSSARY
+     Each term is a <dt id="g-..."> followed by its <dd> definition.
+     In lesson text, link to it with <a class="term" href="#g-...">word</a>
+     and the tooltip is created automatically from the <dd>.
+     Terms already defined in Level 1 are linked to Level 1's glossary
+     (index.html#g-...) with ordinary links instead.
+     ====================================================================== -->
+<section class="lesson glossary" id="glossary" aria-labelledby="glossary-title">
+  <h2 id="glossary-title"><span class="lesson-kicker">Reference</span>Glossary</h2>
+  <p>Plain-language definitions of the new terms in Level 2. Underlined words in the lessons link here. For the basics (variable, loop, function, codon, FASTA and so on), see the <a href="index.html#glossary">Level 1 glossary</a>.</p>
+
+  <div class="glossary-cols">
+    <div>
+      <h3>Python terms</h3>
+      <dl>
+        <dt id="g-api">API</dt>
+        <dd>Application Programming Interface: a set of rules that lets one program ask another for data or actions. NCBI's E-utilities are an API.</dd>
+        <dt id="g-api-key">API key</dt>
+        <dd>A personal code that identifies you to a service such as NCBI, often allowing more requests. Keep it private: never put it in code you share.</dd>
+        <dt id="g-ascii">ASCII</dt>
+        <dd>A standard that gives every common character a number: <code>A</code> is 65, <code>!</code> is 33. <code>ord()</code> and <code>chr()</code> convert between them.</dd>
+        <dt id="g-assert"><code>assert</code></dt>
+        <dd>Checks that a condition is True. If it isn't, Python stops with an <code>AssertionError</code> and your message. Used to test code on small known examples.</dd>
+        <dt id="g-comprehension">Comprehension</dt>
+        <dd>A one-line way to build a list or dictionary from a loop: <code>[len(s) for s in seqs]</code> or <code>{b: dna.count(b) for b in "ACGT"}</code>.</dd>
+        <dt id="g-constant">Constant</dt>
+        <dd>A value set once and never changed, written in CAPITALS by convention, such as <code>MIN_QUALITY = 20</code>.</dd>
+        <dt id="g-csv">CSV / TSV</dt>
+        <dd>Plain-text table formats: one row per line, with values separated by commas (CSV) or tabs (TSV). Readable by Excel, R, pandas and most tools.</dd>
+        <dt id="g-dataframe">DataFrame</dt>
+        <dd>pandas' table: rows and named columns, like a spreadsheet you control with code.</dd>
+        <dt id="g-debugging">Debugging</dt>
+        <dd>Finding and fixing bugs, for example by printing values in the middle of the code to see where they differ from what you expected.</dd>
+        <dt id="g-default-argument">Default argument</dt>
+        <dd>A parameter with a ready-made value, used when the caller doesn't give one: <code>def trim(seq, n=3):</code>.</dd>
+        <dt id="g-groupby"><code>groupby</code></dt>
+        <dd>A pandas operation that splits a table into groups by a column, calculates something for each group, and combines the results.</dd>
+        <dt id="g-histogram">Histogram</dt>
+        <dd>A plot that sorts values into ranges (bins) and shows how many fall in each: the standard way to look at a distribution.</dd>
+        <dt id="g-json">JSON</dt>
+        <dd>A text format for data made of nested dictionaries and lists, used by many web APIs. Python's <code>json.loads()</code> turns it into Python objects.</dd>
+        <dt id="g-keyword-argument">Keyword argument</dt>
+        <dd>An argument passed with its parameter's name, such as <code>translate(to_stop=True)</code>. It makes calls easier to read.</dd>
+        <dt id="g-magic-number">Magic number</dt>
+        <dd>An unexplained number in the middle of code, such as <code>if q &gt; 20:</code>. Replace it with a named constant.</dd>
+        <dt id="g-matplotlib">matplotlib</dt>
+        <dd>Python's most widely used plotting library. Usually imported as <code>import matplotlib.pyplot as plt</code>.</dd>
+        <dt id="g-merge">Merge (join)</dt>
+        <dd>Combining two tables side by side using a column they share, such as a gene name. <code>how="left"</code> keeps every row of the first table.</dd>
+        <dt id="g-module">Module</dt>
+        <dd>A file of Python code that other code can <code>import</code>. Any <code>.py</code> file is a module, such as this page's <code>seqtools.py</code>. First met in Level 1.</dd>
+        <dt id="g-nan"><code>NaN</code></dt>
+        <dd>"Not a Number": how pandas marks a missing value. Most calculations skip it; any sum involving it gives NaN.</dd>
+        <dt id="g-pandas">pandas</dt>
+        <dd>Python's library for tables (DataFrames). Usually imported as <code>import pandas as pd</code>.</dd>
+        <dt id="g-pep8">PEP 8</dt>
+        <dd>Python's official style guide: lowercase_with_underscores names, CAPITALS for constants, 4-space indents, spaces after commas.</dd>
+        <dt id="g-pipeline">Pipeline</dt>
+        <dd>A script (or set of scripts) that runs every step of an analysis in order, the same way every time: read, check, process, report.</dd>
+        <dt id="g-raise"><code>raise</code></dt>
+        <dd>Stops the program with an error you choose, such as <code>raise ValueError("Invalid base")</code>, unless the caller catches it with <code>try</code>/<code>except</code>.</dd>
+        <dt id="g-raw-string">Raw string</dt>
+        <dd>A string written with an <code>r</code> in front, <code>r"..."</code>, where backslashes are kept as they are. Used for regex patterns.</dd>
+        <dt id="g-regex">Regular expression (regex)</dt>
+        <dd>A pattern that describes a family of strings, such as <code>GT[CT][AG]AC</code>. Python's <code>re</code> module searches text with them.</dd>
+        <dt id="g-reproducible">Reproducible</dt>
+        <dd>An analysis anyone can repeat and get the same result: the steps are in code, raw data is unchanged, and settings, seeds and versions are recorded.</dd>
+        <dt id="g-seed">Random seed</dt>
+        <dd>The starting number for a computer's random numbers. Setting it, with <code>random.seed(42)</code>, makes "random" results the same every run.</dd>
+        <dt id="g-series">Series</dt>
+        <dd>One column of a pandas DataFrame: a list of values with a label for each.</dd>
+        <dt id="g-standard-library">Standard library</dt>
+        <dd>The modules that come with every Python installation, such as <code>math</code>, <code>statistics</code>, <code>collections</code>, <code>random</code>, <code>re</code>, <code>csv</code> and <code>json</code>.</dd>
+        <dt id="g-traceback">Traceback</dt>
+        <dd>Python's full error report. Read it from the bottom up: the last line names the error; the lines above show the chain of function calls that led there. First met in Level 1.</dd>
+        <dt id="g-try-except"><code>try</code> / <code>except</code></dt>
+        <dd>Runs the code under <code>try:</code>; if a named error happens, Python jumps to the matching <code>except</code> block instead of stopping.</dd>
+        <dt id="g-tuple">Tuple</dt>
+        <dd>A small, unchangeable list written with round brackets, such as <code>("GAG", 2)</code>. Functions can return several values as a tuple.</dd>
+        <dt id="g-while-loop"><code>while</code> loop</dt>
+        <dd>A loop that repeats as long as its condition is True. Make sure something inside it moves towards stopping.</dd>
+      </dl>
+    </div>
+    <div>
+      <h3>Bioinformatics terms</h3>
+      <dl>
+        <dt id="g-accession">Accession number</dt>
+        <dd>A unique, permanent ID for a database record, with a version after the dot: <code>NM_000518.5</code>. The prefix shows the type: NM_ mRNA, NP_ protein, NC_ chromosome. First met in Level 1.</dd>
+        <dt id="g-alignment">Alignment</dt>
+        <dd>Two or more sequences lined up in columns so that similar parts sit together, showing matches, mismatches and gaps.</dd>
+        <dt id="g-eutils">E-utilities</dt>
+        <dd>NCBI's programming interface: web addresses such as esearch (find record IDs) and efetch (download records) that answer questions from scripts.</dd>
+        <dt id="g-fastq">FASTQ</dt>
+        <dd>The standard file format for sequencing reads: four lines per read (@ID, sequence, +, quality string).</dd>
+        <dt id="g-feature">Feature</dt>
+        <dd>An annotated region in a GenBank record, such as a gene, exon or CDS, with a location and extra details called qualifiers.</dd>
+        <dt id="g-gap">Gap (indel)</dt>
+        <dd>A dash in an alignment where one sequence has a base and the other doesn't, caused by an insertion or a deletion.</dd>
+        <dt id="g-genbank">GenBank format</dt>
+        <dd>NCBI's rich text format for a sequence record: a header (organism, references), a FEATURES table with annotations, and the sequence.</dd>
+        <dt id="g-iupac">IUPAC codes</dt>
+        <dd>Single letters for groups of bases, used to write flexible motifs: R = A or G, Y = C or T, N = any base.</dd>
+        <dt id="g-kmer">k-mer</dt>
+        <dd>A piece of sequence <em>k</em> bases long. A sequence of length <em>L</em> contains <em>L</em> − <em>k</em> + 1 overlapping k-mers.</dd>
+        <dt id="g-log2fc">log2 fold change</dt>
+        <dd>How much expression changed, on a log2 scale: +1 means doubled, −1 halved, 0 unchanged.</dd>
+        <dt id="g-motif">Motif</dt>
+        <dd>A short sequence pattern with a biological meaning, such as a restriction site or the poly-A signal AATAAA.</dd>
+        <dt id="g-orf">Open reading frame (ORF)</dt>
+        <dd>A stretch of DNA that could code for a protein: from a start codon (ATG) to the next stop codon in the same reading frame.</dd>
+        <dt id="g-phred">Phred quality score</dt>
+        <dd>A sequencer's confidence in a base: Q = −10 × log10(error probability). Q20 = 1 error in 100, Q30 = 1 in 1,000.</dd>
+        <dt id="g-pseudocount">Pseudocount</dt>
+        <dd>A small number (often 1) added to counts before dividing or taking logs, to avoid dividing by zero and exaggerating tiny values.</dd>
+        <dt id="g-read">Sequencing read</dt>
+        <dd>One short piece of sequence reported by a sequencing machine, usually 50–300 bases on Illumina machines.</dd>
+        <dt id="g-recognition-site">Recognition site</dt>
+        <dd>The short sequence a restriction enzyme binds and cuts, such as GAATTC for EcoRI.</dd>
+        <dt id="g-restriction-enzyme">Restriction enzyme</dt>
+        <dd>A bacterial protein that cuts DNA at a specific recognition site. Widely used in cloning and, historically, in diagnosis.</dd>
+        <dt id="g-scoring">Scoring scheme</dt>
+        <dd>The points an alignment gets for matches, mismatches and gaps (or a substitution matrix for proteins). It decides which alignment is "best".</dd>
+        <dt id="g-seqrecord">SeqRecord</dt>
+        <dd>Biopython's object for a sequence plus its information: ID, description, annotations, features and per-letter data such as quality scores.</dd>
+        <dt id="g-substitution-matrix">Substitution matrix</dt>
+        <dd>A table of scores for swapping one amino acid for another in a protein alignment. BLOSUM62 is the most common.</dd>
+        <dt id="g-tpm">TPM</dt>
+        <dd>Transcripts per million: a measure of gene expression. Roughly, out of every million mRNA molecules, how many come from this gene.</dd>
+        <dt id="g-translation-table">Translation table</dt>
+        <dd>A version of the genetic code, numbered by NCBI. Table 1 is the standard code; table 2 is the vertebrate mitochondrial code.</dd>
+        <dt id="g-trimming">Quality trimming</dt>
+        <dd>Cutting low-quality bases off the end of a read (usually the 3′ end) instead of throwing the whole read away.</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+

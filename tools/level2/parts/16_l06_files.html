@@ -1,0 +1,327 @@
+<!-- ======================================================================
+     LESSON 6 — READING AND WRITING FILES PROPERLY
+     ====================================================================== -->
+<section class="lesson" id="files" aria-labelledby="files-title">
+  <h2 id="files-title"><span class="lesson-kicker">Lesson 6</span>Reading and writing files properly</h2>
+
+  <div class="callout why">
+    <span class="callout-title">🧬 Why this matters in bioinformatics</span>
+    <p>Results that only live on your screen disappear when you close the window. Real analyses <strong>save their results to files</strong>: filtered sequences for the next tool, tables for colleagues, spreadsheets for supervisors. And the original data, the raw reads that cost money and time to produce, must never be changed. In this lesson you'll write files safely and in the formats everyone else can open.</p>
+  </div>
+
+  <h3>Writing a text file</h3>
+  <p>In Level 1 you opened files for reading with <code>with open(filename) as f:</code>. To <strong>write</strong>, add a second argument, the <em>mode</em>, <code>"w"</code>. Then <code>f.write(text)</code> puts text into the file. Unlike <code>print()</code>, <code>.write()</code> doesn't add a new line for you, so add <code>"\n"</code> yourself at the end of each line.</p>
+
+<script type="text/x-python" class="py-example">
+with open("notes.txt", "w") as f:
+    f.write("Sample S01: liver\n")
+    f.write("Sample S02: kidney\n")
+
+# Read it back to check
+with open("notes.txt") as f:
+    print(f.read())
+</script>
+
+  <p>As before, <code>with</code> closes the file automatically when the indented block ends. That matters even more for writing: text is only guaranteed to be saved once the file is closed.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Mode</th><th>Meaning</th><th>If the file already exists…</th></tr></thead>
+      <tbody>
+        <tr><td><code>"r"</code></td><td>read (the default)</td><td>it's read; nothing changes</td></tr>
+        <tr><td><code>"w"</code></td><td>write</td><td>⚠️ it's <strong>emptied first</strong>, with no warning</td></tr>
+        <tr><td><code>"a"</code></td><td>append</td><td>new text is added at the end</td></tr>
+        <tr><td><code>"x"</code></td><td>create</td><td>you get an error instead: a safe way to never overwrite anything</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+<script type="text/x-python" class="py-example">
+with open("log.txt", "w") as f:
+    f.write("Analysis started\n")
+
+with open("log.txt", "a") as f:      # "a" adds to the end
+    f.write("Step 1 done\n")
+    f.write("Step 2 done\n")
+
+with open("log.txt") as f:
+    print(f.read())
+</script>
+
+  <div class="callout warn">
+    <span class="callout-title">⚠️ Never modify raw data</span>
+    <p>Mode <code>"w"</code> empties the file the moment it opens, even if you then write nothing. Open your raw data (FASTQ, FASTA, the files that came from the sequencer or database) for <strong>reading only</strong>, and always write results to <strong>new</strong> files with new names. If something goes wrong, you can simply delete the results and run your code again from the untouched raw data.</p>
+    <p>On this page, the original data files are put back before every run, so you can't permanently damage them here. On your own computer there's no such safety net!</p>
+  </div>
+
+  <div class="callout fact">
+    <span class="callout-title">🤓 Did you know?</span>
+    <p>Spreadsheet programs have a habit of "helpfully" changing data. Open a gene list in Excel, and genes such as <em>SEPT2</em> and <em>MARCH1</em> become the dates 2-Sep and 1-Mar. A 2016 study found this error in about a fifth of published papers that shared gene lists as Excel files. In 2020, the committee that names human genes gave up and renamed them: <em>SEPT2</em> is now <em>SEPTIN2</em> and <em>MARCH1</em> is <em>MARCHF1</em>. The lesson: keep raw data untouched, and do your processing in code.</p>
+  </div>
+
+  <h3>🧪 Project: write a filtered FASTA file</h3>
+  <p>Let's keep only the sequences from <code>genes.fasta</code> that are at least 300 bases long, and save them in a new FASTA file. FASTA files usually wrap long sequences into lines of 60 letters, so we'll do that too, with a slice in steps of 60.</p>
+
+<script type="text/x-python" class="py-example">
+from seqtools import read_fasta
+
+MIN_LENGTH = 300       # bases
+LINE_WIDTH = 60        # letters per sequence line, as in most FASTA files
+
+sequences = read_fasta("genes.fasta")      # raw data: only read, never written
+
+with open("long_genes.fasta", "w") as out:     # results go to a NEW file
+    for seq_id, seq in sequences.items():
+        if len(seq) >= MIN_LENGTH:
+            out.write(f">{seq_id} length={len(seq)}\n")
+            for start in range(0, len(seq), LINE_WIDTH):
+                out.write(seq[start:start + LINE_WIDTH] + "\n")
+
+# Good habit: check what you wrote
+check = read_fasta("long_genes.fasta")
+print("Records written:", list(check))     # list() of a dictionary gives its keys
+print("Lengths match:", all(len(check[i]) == len(sequences[i]) for i in check))
+with open("long_genes.fasta") as f:
+    print(f.read()[:200])
+</script>
+
+  <p><code>all(...)</code> gives <code>True</code> only if every item in the brackets is <code>True</code>, a handy one-line check. (Its partner, <code>any(...)</code>, gives <code>True</code> if at least one item is.)</p>
+  <div class="callout habit">
+    <span class="callout-title">🧹 Good habit: read back what you write</span>
+    <p>After writing a results file, read it back and check a few things: the number of records, the lengths, the first lines. It takes one minute and catches whole families of bugs, such as a missing <code>"\n"</code> that glues all your sequences together.</p>
+  </div>
+
+  <h3>Tables: CSV and TSV files</h3>
+  <p>Most results are tables. The two most common plain-text table formats are <a class="term" href="#g-csv">CSV</a> (comma-separated values) and TSV (tab-separated values). Every program can open them: Excel, R, pandas (next lesson), and your colleagues' tools. You <em>could</em> write them with <code>f.write()</code>, but values that contain commas or quotes make that surprisingly tricky. Python's <code>csv</code> module handles all of it.</p>
+
+<script type="text/x-python" class="py-example">
+import csv
+from seqtools import read_fasta, gc_content
+
+sequences = read_fasta("genes.fasta")
+
+with open("gc_report.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["gene_id", "length", "gc_percent"])          # the header row
+    for seq_id, seq in sequences.items():
+        writer.writerow([seq_id, len(seq), round(gc_content(seq), 1)])
+
+with open("gc_report.csv") as f:
+    print(f.read())
+</script>
+
+  <p>Two details: <code>writer.writerow()</code> takes a list, one item per column, and <code>newline=""</code> in <code>open()</code> lets the <code>csv</code> module control line endings, which avoids blank lines between rows on Windows. <code>round(x, 1)</code> rounds a number to 1 decimal place.</p>
+  <p>Reading works the same way. <code>csv.DictReader</code> is especially nice: it uses the header row so you can get each value by its column name. For a TSV file, tell it the separator is a tab, <code>delimiter="\t"</code>. Here's this page's gene annotation table (made-up teaching data, used again in Lesson 8):</p>
+
+<script type="text/x-python" class="py-example">
+import csv
+
+with open("annotation.tsv", newline="") as f:
+    reader = csv.DictReader(f, delimiter="\t")
+    for row in reader:
+        if row["pathway"] == "p53 pathway":
+            print(f"{row['gene']:8} chromosome {row['chromosome']:>2}  {row['description']}")
+</script>
+
+  <div class="callout warn">
+    <span class="callout-title">⚠️ Everything read from a file is text</span>
+    <p>The <code>csv</code> module gives you strings, even for numbers: <code>row["chromosome"]</code> is <code>"17"</code>, not <code>17</code>. Convert with <code>int()</code> or <code>float()</code> before doing maths. (Remember the <code>"30"</code> vs <code>30</code> warning from Level 1? Here it is in real life.) In the next lesson, pandas will do these conversions for you.</p>
+  </div>
+
+  <h3>Exercises</h3>
+  <div class="exercise" id="ex-6-1">
+    <h4><span class="exercise-tag">Exercise 6.1</span><span class="exercise-kind">✍️ Write it</span>Save the GC-rich genes</h4>
+    <p>Write every sequence from <code>genes.fasta</code> whose GC content is at least <code>MIN_GC</code> to a new file called <code>gc_rich.fasta</code>, in FASTA format: a header line <code>&gt;ID</code>, then the sequence on the next line (no wrapping needed). Use the constant, because the check will try another threshold.</p>
+<script type="text/x-python" class="py-starter">
+from seqtools import read_fasta, gc_content
+
+MIN_GC = 60   # percent
+
+sequences = read_fasta("genes.fasta")
+
+# write gc_rich.fasta here
+
+
+print(open("gc_rich.fasta").read())
+</script>
+    <div class="hints">
+      <p>Open the new file for writing: <code>with open("gc_rich.fasta", "w") as out:</code>, then loop over <code>sequences.items()</code> inside it.</p>
+      <p>For each GC-rich sequence: <code>out.write(f"&gt;{seq_id}\n")</code> and <code>out.write(seq + "\n")</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from seqtools import read_fasta, gc_content
+
+MIN_GC = 60   # percent
+
+sequences = read_fasta("genes.fasta")
+
+with open("gc_rich.fasta", "w") as out:
+    for seq_id, seq in sequences.items():
+        if gc_content(seq) >= MIN_GC:
+            out.write(f">{seq_id}\n")
+            out.write(seq + "\n")
+
+print(open("gc_rich.fasta").read())
+</script>
+<script type="text/x-python" class="py-tests">
+import os as _os
+import re as _re
+from seqtools import read_fasta as _read
+if _os.path.exists("gc_rich.fasta"):
+    _os.remove("gc_rich.fasta")     # start fresh, so an old file from an earlier run can't count
+exec(_source, {})
+assert _os.path.exists("gc_rich.fasta"), "I can't find gc_rich.fasta. Open it with mode \"w\" and write to it."
+_got = _read("gc_rich.fasta")
+assert list(_got) == ["NM_000207.3"], f"With MIN_GC = 60, only NM_000207.3 (insulin, 64.6% GC) should be in the file, but I found {list(_got)}."
+assert _got["NM_000207.3"] == _read("genes.fasta")["NM_000207.3"], "The sequence in gc_rich.fasta doesn't match the original. Did you write the whole sequence, followed by a new line?"
+assert len(_read("genes.fasta")) == 3, "genes.fasta has changed! Never write to the raw data file."
+_os.remove("gc_rich.fasta")
+_code = _re.sub(r"^MIN_GC\s*=.*$", "MIN_GC = 50", _source, count=1, flags=_re.M)
+exec(_code, {})
+_got = _read("gc_rich.fasta")
+assert list(_got) == ["NM_000518.5", "NM_000207.3", "NM_000546.6"], f"With MIN_GC = 50, all three genes should be written, but your code wrote {list(_got)}. Use the MIN_GC constant in your if line."
+</script>
+  </div>
+
+  <div class="exercise" id="ex-6-2">
+    <h4><span class="exercise-tag">Exercise 6.2</span><span class="exercise-kind">✍️ Write it</span>A results table</h4>
+    <p>Use the <code>csv</code> module to write <code>protein_report.csv</code>, with the header row <code>gene_id,length_bp,protein_length</code> and one row per gene in <code>genes.fasta</code>. The protein length is <code>len(translate(seq))</code>.</p>
+<script type="text/x-python" class="py-starter">
+import csv
+from seqtools import read_fasta, translate
+
+sequences = read_fasta("genes.fasta")
+
+# write protein_report.csv here
+
+
+print(open("protein_report.csv").read())
+</script>
+    <div class="hints">
+      <p>Follow the GC report example: <code>with open("protein_report.csv", "w", newline="") as f:</code> and <code>writer = csv.writer(f)</code>.</p>
+      <p>The header: <code>writer.writerow(["gene_id", "length_bp", "protein_length"])</code>. Then, in a loop: <code>writer.writerow([seq_id, len(seq), len(translate(seq))])</code>.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+import csv
+from seqtools import read_fasta, translate
+
+sequences = read_fasta("genes.fasta")
+
+with open("protein_report.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["gene_id", "length_bp", "protein_length"])
+    for seq_id, seq in sequences.items():
+        writer.writerow([seq_id, len(seq), len(translate(seq))])
+
+print(open("protein_report.csv").read())
+</script>
+<script type="text/x-python" class="py-tests">
+import csv as _csv
+import os as _os
+if _os.path.exists("protein_report.csv"):
+    _os.remove("protein_report.csv")     # start fresh, so an old file from an earlier run can't count
+exec(_source, {})
+assert _os.path.exists("protein_report.csv"), "I can't find protein_report.csv."
+with open("protein_report.csv", newline="") as _f:
+    _rows = list(_csv.reader(_f))
+assert _rows, "protein_report.csv is empty."
+assert _rows[0] == ["gene_id", "length_bp", "protein_length"], f"The header row should be gene_id,length_bp,protein_length but is {','.join(_rows[0])}."
+assert len(_rows) == 4, f"There should be a header plus 3 rows (one per gene), but I found {len(_rows)} rows in total."
+assert _rows[1:] == [["NM_000518.5", "444", "147"], ["NM_000207.3", "333", "110"], ["NM_000546.6", "120", "40"]], f"The rows don't look right: {_rows[1:]}"
+</script>
+  </div>
+
+  <div class="exercise" id="ex-6-3">
+    <h4><span class="exercise-tag challenge">🌶️ Challenge 6.3</span><span class="exercise-kind">🐞 Fix the bug</span>The script that ate the raw data</h4>
+    <p>This script is meant to make a tidy copy of <code>sample.fasta</code> with short headers (just the ID). Instead, it has two bugs: it <strong>overwrites the raw data file</strong>, and the records it writes are glued together. Fix both, so the tidy copy goes to <code>sample_short_headers.fasta</code> and <code>sample.fasta</code> stays untouched.</p>
+<script type="text/x-python" class="py-starter">
+from seqtools import read_fasta
+
+sequences = read_fasta("sample.fasta")
+
+with open("sample.fasta", "w") as out:
+    for seq_id, seq in sequences.items():
+        out.write(f">{seq_id}")
+        out.write(seq)
+
+print(open("sample.fasta").read())
+</script>
+    <div class="hints">
+      <p>Bug 1: which file is opened with <code>"w"</code>? Results must always go to a <em>new</em> file. Change both the <code>open()</code> line and the <code>print()</code> line.</p>
+      <p>Bug 2: <code>.write()</code> doesn't add new lines. Add <code>"\n"</code> after the header and after the sequence.</p>
+    </div>
+<script type="text/x-python" class="py-solution">
+from seqtools import read_fasta
+
+sequences = read_fasta("sample.fasta")
+
+with open("sample_short_headers.fasta", "w") as out:
+    for seq_id, seq in sequences.items():
+        out.write(f">{seq_id}\n")
+        out.write(seq + "\n")
+
+print(open("sample_short_headers.fasta").read())
+</script>
+<script type="text/x-python" class="py-tests">
+import os as _os
+from seqtools import read_fasta as _read
+with open("sample.fasta") as _f:
+    _first = _f.readline().strip()
+assert _first.startswith(">HBB Homo sapiens"), "sample.fasta was overwritten! The raw data lost its full headers. Write the tidy copy to sample_short_headers.fasta instead."
+if _os.path.exists("sample_short_headers.fasta"):
+    _os.remove("sample_short_headers.fasta")     # start fresh, so an old file from an earlier run can't count
+exec(_source, {})
+assert _os.path.exists("sample_short_headers.fasta"), "I can't find sample_short_headers.fasta. Write the tidy copy there."
+_got = _read("sample_short_headers.fasta")
+assert list(_got) == ["HBB", "INS", "GAPDH"], f"The tidy copy should have 3 records (HBB, INS, GAPDH) but I found {list(_got)}. Did you add a new line after each header and sequence?"
+_orig = _read("sample.fasta")
+assert all(_got[k] == _orig[k] for k in _orig), "The sequences in the tidy copy should match the originals exactly."
+with open("sample_short_headers.fasta") as _f:
+    _headers = [l.strip() for l in _f if l.startswith(">")]
+assert _headers == [">HBB", ">INS", ">GAPDH"], f"The headers should be just the IDs, like >HBB, but they are {_headers}."
+</script>
+  </div>
+
+  <div class="quiz">
+    <h3>Quick quiz</h3>
+    <div class="quiz-q">
+      <p>1. You open an existing results file with <code>open("results.csv", "w")</code>. What happens to its old contents?</p>
+      <ul>
+        <li><button class="quiz-opt">They're kept, and new text goes at the end</button><span class="why">That's mode "a" (append).</span></li>
+        <li data-correct><button class="quiz-opt">They're erased as soon as the file opens</button><span class="why">Right. That's why you never open raw data with "w".</span></li>
+        <li><button class="quiz-opt">Python asks for confirmation first</button><span class="why">It doesn't ask. Mode "x" is the safe one: it refuses to open a file that already exists.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>2. Why does <code>f.write(seq)</code> often need <code>+ "\n"</code>?</p>
+      <ul>
+        <li data-correct><button class="quiz-opt">Because <code>.write()</code> doesn't start a new line by itself</button><span class="why">Exactly. print() adds a new line for you; .write() writes only what you give it.</span></li>
+        <li><button class="quiz-opt">To close the file</button><span class="why">The with block closes the file. "\n" is the new-line character.</span></li>
+        <li><button class="quiz-opt">FASTA files require a backslash</button><span class="why">"\n" isn't written as a backslash: it's the invisible new-line character.</span></li>
+      </ul>
+    </div>
+    <div class="quiz-q">
+      <p>3. You read a TSV file with <code>csv.DictReader(f, delimiter="\t")</code>. What type is <code>row["length"]</code>?</p>
+      <ul>
+        <li><button class="quiz-opt">An integer</button><span class="why">The csv module doesn't guess types: everything comes in as text.</span></li>
+        <li data-correct><button class="quiz-opt">A string</button><span class="why">Yes. Convert it with int(row["length"]) before doing maths.</span></li>
+        <li><button class="quiz-opt">A list</button><span class="why">The whole row is a dictionary; each value in it is a string.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout takeaways">
+    <span class="callout-title">✅ Key takeaways</span>
+    <ul>
+      <li><code>with open(name, "w") as f:</code> writes a file; <code>"a"</code> appends; <code>"w"</code> erases an existing file first.</li>
+      <li><code>.write()</code> doesn't add new lines: include <code>"\n"</code> yourself.</li>
+      <li>Never modify raw data. Read it, and write results to new files.</li>
+      <li>Use the <code>csv</code> module for tables: <code>csv.writer</code> and <code>writerow()</code> to write, <code>csv.DictReader</code> to read; <code>delimiter="\t"</code> for TSV.</li>
+      <li>Read back what you wrote, and remember that values read from files are text.</li>
+    </ul>
+  </div>
+  <div class="callout celebrate">
+    <span class="callout-title">🎉 Your results now outlive your browser tab!</span>
+    <p>You just filtered sequences into a new FASTA file and wrote results tables that anyone can open. That's exactly how real pipelines hand their results from one step to the next.</p>
+  </div>
+</section>
+
