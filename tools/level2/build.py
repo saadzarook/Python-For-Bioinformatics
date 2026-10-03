@@ -58,7 +58,8 @@ def build():
         blocks.append(f'<script type="text/plain" class="data-file" data-filename="{name}">\n{text.rstrip()}\n</script>\n')
     data_html = (HERE / "parts_tail" / "data_intro.html").read_text(encoding="utf-8") + "".join(blocks)
     footer = (HERE / "parts_tail" / "footer.html").read_text(encoding="utf-8")
-    page = (head + style + "</head>\n<body>\n" + body + footer + data_html + "\n"
+    banner = "<!-- GENERATED FILE — edit tools/level2/ sources and run python tools/level2/build.py -->\n"
+    page = (banner + head + style + "</head>\n<body>\n" + body + footer + data_html + "\n"
             + shared_runtime(l1) + "\n" + shared_script(l1, PRELOAD) + "</body>\n</html>\n")
     out = REPO / "intermediate.html"
     out.write_text(page, encoding="utf-8", newline="\n")
